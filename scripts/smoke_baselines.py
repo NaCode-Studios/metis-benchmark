@@ -18,6 +18,8 @@ from metis_benchmark.evaluation import mdape, pred_at, temporal_split
 
 
 def report(name: str, y_true: np.ndarray, y_pred: np.ndarray) -> None:
+    # Score only the rows where the baseline produced a prediction; some
+    # baselines are undefined on part of the test block (e.g. missing size).
     keep = ~np.isnan(y_pred)
     if keep.sum() == 0:
         print(f"  {name:<22} n/a")
@@ -28,31 +30,41 @@ def report(name: str, y_true: np.ndarray, y_pred: np.ndarray) -> None:
 
 
 def run(key: str) -> None:
+    # Effort and date are mandatory for a scored temporal backtest.
     df = load(key).dropna(subset=["effort", "date"]).reset_index(drop=True)
     df = df[df["effort"] > 0].reset_index(drop=True)
+    # Chronological split; baselines fit on train, scored on the test block.
+    # The calibration block is reserved for conformal intervals in week 2+.
     split = temporal_split(df, "date")
     train, test = df.loc[split.train], df.loc[split.test]
     y_test = test["effort"].to_numpy(dtype=float)
     print(f"\n== {key} (train={len(train)}, test={len(test)}) ==")
 
+    # Baseline 1: median effort by category, when the dataset has categories.
     if "category" in df and df["category"].notna().any():
         baseline = MedianByCategory().fit(train["category"], train["effort"])
         report("median-by-category", y_test, baseline.predict(test["category"]))
 
+    # Baseline 2: log-log size regression, fit on rows with a positive size.
     if "size" in df:
         sized_train = train.dropna(subset=["size"])
         sized_train = sized_train[sized_train["size"] > 0]
         size_test = test["size"].to_numpy(dtype=float)
+        # Predict only where the test row has a usable size; leave NaN elsewhere
+        # so report() can exclude those rows from scoring.
         ok = ~np.isnan(size_test) & (size_test > 0)
         reg = LogSizeRegression().fit(sized_train["size"], sized_train["effort"])
         preds = np.full(len(test), np.nan)
         preds[ok] = reg.predict(size_test[ok])
         report("log-size regression", y_test, preds)
 
+    # Baseline 3: the human estimate recorded in the dataset itself.
     if "expert_estimate" in df:
         report("expert estimate", y_test, test["expert_estimate"].to_numpy(dtype=float))
 
 
 if __name__ == "__main__":
+    # One dataset with categories+size (desharnais), one with expert+dates on
+    # Track A (kitchenham), one Track B set with expert+dates (sip).
     for key in ["desharnais", "kitchenham", "sip"]:
         run(key)

@@ -30,7 +30,7 @@ import pandas as pd
 from metis_benchmark.datasets.arff import read_arff
 from metis_benchmark.datasets.registry import raw_path
 
-# effort unit per dataset; "verify" entries are confirmed during EDA
+# Effort unit per dataset; "verify" entries are confirmed during EDA.
 EFFORT_UNITS: dict[str, str] = {
     "desharnais": "person-hours",
     "cocomo81": "person-months",
@@ -40,7 +40,7 @@ EFFORT_UNITS: dict[str, str] = {
     "albrecht": "kilo person-hours (verify against literature)",
     "seera": "person-hours (verify against SEERA ReadMe)",
     "deepse": "story points",
-    # EDA: median 3600, p90 28800 (1h / 8h) -> JIRA timespent in seconds
+    # EDA: median 3600, p90 28800 (1h / 8h) -> JIRA timespent in seconds.
     "josse": "seconds",
     "sip": "person-hours",
 }
@@ -51,17 +51,25 @@ EFFORT_UNITS: dict[str, str] = {
 
 def load_desharnais() -> pd.DataFrame:
     df = pd.read_csv(raw_path("desharnais") / "desharnais.csv")
-    df = df.replace(-1, np.nan)  # Desharnais encodes missing as -1
+    # Desharnais encodes missing values as -1; convert to NaN so they are
+    # excluded from statistics instead of polluting them.
+    df = df.replace(-1, np.nan)
+    # Canonical columns: actual effort in person-hours, adjusted function
+    # points as size, programming language as the baseline category.
     df["effort"] = df["Effort"].astype(float)
     df["size"] = df["PointsAjust"].astype(float)
     df["category"] = df["Language"].astype("string")
-    # YearEnd is a two-digit 1980s year: enough ordering for a temporal split
+    # YearEnd is a two-digit 1980s year: coarse, but enough ordering for a
+    # temporal split.
     df["date"] = pd.to_datetime(df["YearEnd"].astype(int) + 1900, format="%Y")
     return df
 
 
 def load_cocomo81() -> pd.DataFrame:
+    # The file declares 26 attributes but ships 27 columns; the undeclared
+    # trailing one is the month count (see arff.read_arff).
     df = read_arff(raw_path("cocomo81") / "coc81-dem.arff", trailing_extra=("months",))
+    # Effort here is person-months (classic COCOMO unit), size is KLOC.
     df["effort"] = df["effort"].astype(float)
     df["size"] = df["kloc"].astype(float)
     return df
@@ -69,6 +77,8 @@ def load_cocomo81() -> pd.DataFrame:
 
 def load_china() -> pd.DataFrame:
     df = read_arff(raw_path("china") / "china.arff")
+    # Effort in person-hours, adjusted function points as size. No date or
+    # category fields exist -> fallback split, no category baseline.
     df["effort"] = df["Effort"].astype(float)
     df["size"] = df["AFP"].astype(float)
     return df
@@ -79,7 +89,9 @@ def load_kitchenham() -> pd.DataFrame:
     df["effort"] = df["Actual.effort"].astype(float)
     df["size"] = df["Adjusted.function.points"].astype(float)
     df["category"] = df["Project.type"].astype("string")
+    # Real day-level start dates -> the strongest temporal split in Track A.
     df["date"] = pd.to_datetime(df["Actual.start.date"], errors="coerce")
+    # The estimate produced at project start: the human-expert baseline.
     df["expert_estimate"] = df["First.estimate"].astype(float)
     return df
 
@@ -89,13 +101,14 @@ def load_maxwell() -> pd.DataFrame:
     df["effort"] = df["Effort"].astype(float)
     df["size"] = df["Size"].astype(float)
     df["category"] = df["App"].astype("string")
-    # Syear is a two-digit 1980s/90s year
+    # Syear is a two-digit 1980s/90s year; shift to a full year for ordering.
     df["date"] = pd.to_datetime(df["Syear"].astype(int) + 1900, format="%Y")
     return df
 
 
 def load_albrecht() -> pd.DataFrame:
     df = read_arff(raw_path("albrecht") / "albrecht.arff")
+    # 24 rows only: loaded for completeness, excluded from the G0 gate.
     df["effort"] = df["Effort"].astype(float)
     df["size"] = df["AdjFP"].astype(float)
     return df
@@ -109,16 +122,22 @@ def load_seera() -> pd.DataFrame:
         / "ARFF Format"
         / "ARFF_SEERA cost estimation dataset.csv.arff"
     )
+    # Several SEERA columns are declared nominal even when numeric in
+    # substance; coerce explicitly and let real missing markers become NaN.
     df["effort"] = pd.to_numeric(df["Actual effort"], errors="coerce")
     df["size"] = pd.to_numeric(df["Object points"], errors="coerce")
     df["category"] = df["Application domain"].astype("string")
+    # Year-level project date: coarse ordering for the temporal split.
     df["date"] = pd.to_datetime(df["Year of project"].astype("Int64"), format="%Y", errors="coerce")
+    # The estimate recorded by the organization: expert baseline on Track A.
     df["expert_estimate"] = pd.to_numeric(df["Estimated effort"], errors="coerce")
     return df
 
 
 # ----- Track B -----
 
+# The 14 publicly available Deep-SE projects (2 of the original 16 were
+# withdrawn for GDPR compliance by the replication-study authors).
 DEEPSE_PROJECTS = [
     "APSTUD", "BAM", "CLOV", "DM", "DURACLOUD", "JRESERVER", "MDL",
     "MESOS", "MULESTUDIO", "MULE", "TIMOB", "TISTUD", "USERGRID", "XD",
@@ -126,26 +145,35 @@ DEEPSE_PROJECTS = [
 
 
 def load_deepse() -> pd.DataFrame:
+    # Load the per-project CSVs and stack them, tagging each row with its
+    # source project for grouping and per-project splits.
     frames = []
     for project in DEEPSE_PROJECTS:
         df = pd.read_csv(raw_path("deepse") / f"{project}_deep-se.csv")
         df["project"] = project
         frames.append(df)
     out = pd.concat(frames, ignore_index=True)
+    # The semantic channel input: title and description merged into one text.
     out["text"] = out["title"].fillna("") + "\n\n" + out["description"].fillna("")
+    # Story points are the effort proxy in this dataset (unit declared in EFFORT_UNITS).
     out["effort"] = out["storypoint"].astype(float)
     return out
 
 
 def load_josse() -> pd.DataFrame:
+    # JOSSE ships as a sqlite database with a single "case" table.
     db = raw_path("josse") / "josse" / "JOSSE_18092020.sqlite3"
     with sqlite3.connect(db) as conn:
         df = pd.read_sql_query('SELECT * FROM "case"', conn)
+    # "corpus" already concatenates the issue title and description.
     df["text"] = df["corpus"].fillna("")
+    # Actual effort in seconds (JIRA timespent convention, confirmed by EDA).
     df["effort"] = pd.to_numeric(df["actual_effort"], errors="coerce")
-    # JOSSE encodes "no expert estimate" as -1
+    # JOSSE encodes "no expert estimate" as -1; keep only positive values so
+    # the expert baseline runs on the truly annotated subset (~19%).
     expert = pd.to_numeric(df["expert_estimated_effort"], errors="coerce")
     df["expert_estimate"] = expert.where(expert > 0)
+    # The JIRA project key is the prefix of the issue id (e.g. ZOOKEEPER-3063).
     df["project"] = df["id"].astype(str).str.split("-").str[0]
     return df
 
@@ -160,15 +188,19 @@ def load_sip() -> pd.DataFrame:
     tasks["occurrence"] = tasks.groupby("TaskNumber").cumcount()
     dates["occurrence"] = dates.sort_values("EstimateOn").groupby("TaskNumber").cumcount()
     df = tasks.merge(dates, on=["TaskNumber", "occurrence"], how="left")
+    # Short task summaries are the only text available in SiP.
     df["text"] = df["Summary"].fillna("")
     df["effort"] = pd.to_numeric(df["HoursActual"], errors="coerce")
+    # Developer estimates exist for every task: full expert baseline.
     df["expert_estimate"] = pd.to_numeric(df["HoursEstimate"], errors="coerce")
     df["category"] = df["Category"].astype("string")
+    # Estimation date drives the temporal split (day-level, 2004-2014).
     df["date"] = df["EstimateOn"]
     df["project"] = df["ProjectCode"].astype("string")
     return df
 
 
+# Dispatch table: registry key -> loader function.
 LOADERS: dict[str, Callable[[], pd.DataFrame]] = {
     "desharnais": load_desharnais,
     "cocomo81": load_cocomo81,

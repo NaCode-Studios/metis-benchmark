@@ -20,7 +20,10 @@ def main() -> None:
     parser.add_argument("--track", choices=["A", "B"], help="restrict to one track")
     args = parser.parse_args()
 
+    # Check which datasets have files in data/raw/<key>/.
     present = status()
+
+    # One line per dataset: track, gate membership, local availability, source.
     print(f"{'dataset':<14} {'track':<6} {'gate':<6} {'local':<6} source")
     for s in SOURCES:
         if args.track and s.track != args.track:
@@ -29,6 +32,8 @@ def main() -> None:
             f"{s.key:<14} {s.track:<6} {'yes' if s.in_gate else 'no':<6} "
             f"{'yes' if present[s.key] else 'NO':<6} {s.source}"
         )
+
+    # Point the user at the download path for anything still missing.
     missing = [s.key for s in SOURCES if not present[s.key] and (not args.track or s.track == args.track)]
     if missing:
         print(f"\nmissing locally: {', '.join(missing)}")
