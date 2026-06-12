@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "metis-benchmark"
+version = "0.1.0"
+description = "Public backtest of the Metis software effort estimation engine on open datasets (PROMISE, SEERA, JOSSE, TAWOS, Deep-SE, SiP)"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "NaCode Studios", email = "info@nacodestudios.it" }]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scikit-learn>=1.4",
+]
+
+[project.optional-dependencies]
+# Track A regressors and conformalized intervals
+models = [
+    "xgboost>=2.0",
+    "mapie>=0.8",
+]
+# Track B semantic channel (local embeddings, zero inference cost)
+semantic = [
+    "sentence-transformers>=2.6",
+    "onnxruntime>=1.17",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/metis_benchmark"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
