@@ -4,8 +4,9 @@ Track A — project level, validates the tabular channel.
 Track B — task level with text, validates the semantic channel.
 
 Raw files live in data/raw/<key>/ and are never committed: licenses differ
-per dataset and each must be cited as required by its source. URLs marked
-`verify` are confirmed during week 1 EDA before the protocol is frozen.
+per dataset and each must be cited as required by its source. Sources were
+verified against the Zenodo API and GitHub on 2026-06-12; scripts/download.py
+is the reproducible path to the raw files.
 """
 
 from __future__ import annotations
@@ -33,17 +34,18 @@ SOURCES: list[DatasetSource] = [
         key="desharnais",
         track="A",
         name="PROMISE / Desharnais",
-        source="Zenodo PROMISE mirror (verify exact record in W1)",
-        license="CC-BY",
+        source="github.com/Derek-Jones/Software-estimation-datasets (Desharnais.csv)",
+        license="see meta-catalog",
         in_gate=True,
-        notes="81 projects; classic literature dataset; smoke-test entry point",
+        notes="81 projects; classic literature dataset; smoke-test entry point; "
+        "not on Zenodo -> served by the declared reserve meta-catalog",
     ),
     DatasetSource(
         key="cocomo81",
         track="A",
         name="PROMISE / COCOMO81",
-        source="Zenodo PROMISE mirror (verify exact record in W1)",
-        license="CC-BY",
+        source="DOI 10.5281/zenodo.268424 (coc81-dem.arff)",
+        license="CC-BY-4.0",
         in_gate=True,
         notes="63 projects, 1980s; declared-limits dataset",
     ),
@@ -52,7 +54,7 @@ SOURCES: list[DatasetSource] = [
         track="A",
         name="PROMISE / China",
         source="DOI 10.5281/zenodo.268446",
-        license="CC-BY",
+        license="CC-BY-4.0",
         in_gate=True,
         notes="499 projects; largest PROMISE set, main Track A dataset",
     ),
@@ -60,8 +62,8 @@ SOURCES: list[DatasetSource] = [
         key="kitchenham",
         track="A",
         name="PROMISE / Kitchenham",
-        source="Zenodo PROMISE mirror (verify exact record in W1)",
-        license="CC-BY",
+        source="DOI 10.5281/zenodo.268457",
+        license="CC-BY-4.0",
         in_gate=True,
         notes="145 projects; has dates -> true temporal split",
     ),
@@ -69,16 +71,16 @@ SOURCES: list[DatasetSource] = [
         key="maxwell",
         track="A",
         name="PROMISE / Maxwell",
-        source="Zenodo PROMISE mirror (verify exact record in W1)",
-        license="CC-BY",
+        source="DOI 10.5281/zenodo.268461",
+        license="CC-BY-4.0",
         in_gate=True,
     ),
     DatasetSource(
         key="albrecht",
         track="A",
         name="PROMISE / Albrecht",
-        source="Zenodo PROMISE mirror (verify exact record in W1)",
-        license="CC-BY",
+        source="DOI 10.5281/zenodo.268467",
+        license="CC-BY-4.0",
         in_gate=True,
         notes="24 projects; too small for the gate on its own, kept for completeness",
     ),
@@ -86,8 +88,8 @@ SOURCES: list[DatasetSource] = [
         key="seera",
         track="A",
         name="SEERA (PROMISE/ACM 2020)",
-        source="PROMISE/ACM 2020 companion (verify download in W1)",
-        license="verify",
+        source="DOI 10.5281/zenodo.4312777",
+        license="CC-BY-4.0",
         in_gate=True,
         notes="~120 real projects, 70+ cost drivers with economic attributes",
     ),
@@ -96,17 +98,18 @@ SOURCES: list[DatasetSource] = [
         key="deepse",
         track="B",
         name="Deep-SE issue dataset (Choetkiertikul et al. 2019)",
-        source="public CSVs of the IEEE TSE paper (verify mirror in W1)",
-        license="verify",
+        source="github.com/SOLAR-group/AgileEffortEstimation (Choet_Dataset)",
+        license="see replication study repo",
         in_gate=True,
-        notes="23,313 issues, 16 projects; CSV -> fastest Track B entry point",
+        notes="14 of the original 16 project CSVs (2 withdrawn for GDPR); "
+        "fastest Track B entry point",
     ),
     DatasetSource(
         key="josse",
         track="B",
         name="JOSSE (Alhamed & Storer 2022)",
         source="DOI 10.5281/zenodo.7022735",
-        license="verify",
+        license="CC-BY-4.0",
         in_gate=True,
         notes="JIRA tasks (Apache/JBoss/Spring) with real effort; ~19% carry an "
         "expert estimate -> direct model-vs-human comparison",
@@ -116,7 +119,7 @@ SOURCES: list[DatasetSource] = [
         track="B",
         name="SiP (Jones & Cullum 2019)",
         source="github.com/Derek-Jones/SiP_dataset",
-        license="verify",
+        license="see repo README",
         in_gate=True,
         notes="10,100 task estimates with actuals, 22 developers; calibration "
         "validation: CQR coverage, underestimation bias",
@@ -125,8 +128,8 @@ SOURCES: list[DatasetSource] = [
         key="tawos",
         track="B",
         name="TAWOS (MSR 2022)",
-        source="github.com/SOLAR-group/TAWOS",
-        license="verify",
+        source="DOI 10.5522/04/21308124 (MySQL dump; repo github.com/SOLAR-group/TAWOS)",
+        license="Apache-2.0, research-purposes terms of use",
         in_gate=False,
         notes="~458k issues, 39+ JIRA projects; retrieval/reranking scale only — "
         "subset declared in the protocol, not part of the gate",
