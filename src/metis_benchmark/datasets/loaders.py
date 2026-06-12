@@ -40,7 +40,8 @@ EFFORT_UNITS: dict[str, str] = {
     "albrecht": "kilo person-hours (verify against literature)",
     "seera": "person-hours (verify against SEERA ReadMe)",
     "deepse": "story points",
-    "josse": "minutes (verify: JIRA timespent convention)",
+    # EDA: median 3600, p90 28800 (1h / 8h) -> JIRA timespent in seconds
+    "josse": "seconds",
     "sip": "person-hours",
 }
 
@@ -152,12 +153,18 @@ def load_josse() -> pd.DataFrame:
 def load_sip() -> pd.DataFrame:
     tasks = pd.read_csv(raw_path("sip") / "Sip-task-info.csv", encoding="cp1252")
     dates = pd.read_csv(raw_path("sip") / "est-act-dates.csv")
-    df = tasks.merge(dates, on="TaskNumber", how="left")
+    # Both files hold one row per estimate event and tasks can be re-estimated;
+    # pair the k-th occurrence of each task in one file with the k-th in the
+    # other (a plain TaskNumber merge would cross-join repeated tasks).
+    dates["EstimateOn"] = pd.to_datetime(dates["EstimateOn"], format="%d-%b-%y", errors="coerce")
+    tasks["occurrence"] = tasks.groupby("TaskNumber").cumcount()
+    dates["occurrence"] = dates.sort_values("EstimateOn").groupby("TaskNumber").cumcount()
+    df = tasks.merge(dates, on=["TaskNumber", "occurrence"], how="left")
     df["text"] = df["Summary"].fillna("")
     df["effort"] = pd.to_numeric(df["HoursActual"], errors="coerce")
     df["expert_estimate"] = pd.to_numeric(df["HoursEstimate"], errors="coerce")
     df["category"] = df["Category"].astype("string")
-    df["date"] = pd.to_datetime(df["EstimateOn"], format="%d-%b-%y", errors="coerce")
+    df["date"] = df["EstimateOn"]
     df["project"] = df["ProjectCode"].astype("string")
     return df
 
