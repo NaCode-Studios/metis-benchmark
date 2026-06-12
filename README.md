@@ -41,7 +41,9 @@ requirements. Sources are listed in
 ## Status
 
 - [x] Metrics, baselines, temporal split (tested)
-- [ ] Week 1 — dataset download, EDA, data dictionary, protocol freeze
+- [x] Week 1 — dataset download (10/10 gate datasets), EDA,
+      [data dictionary](reports/data_dictionary.md), baseline smoke test,
+      protocol ready to freeze
 - [ ] Week 2 — Track A (GP + GBM quantile + CQR), Track B (embeddings + k-NN)
 - [ ] Week 3 — full backtest, calibration plots, cold-start curve, model vs expert
 - [ ] Week 4 — public technical report, G0 decision
