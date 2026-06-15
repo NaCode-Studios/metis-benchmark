@@ -9,6 +9,15 @@ not taken from the Gaussian assumption directly.
 Effort is modeled in log space (z = log(effort)): software effort is roughly
 log-normal (confirmed in EDA, |skew| < 0.7 on every dataset), so the additive
 GP noise is far more reasonable on the log scale than on raw hours.
+
+Mean function (v1.3): the GP can fit the *residual* of a log-size power law
+instead of effort from a zero mean. The caller supplies `baseline_log` — the
+log-space prediction of the size law `log(a) + b·log(size)` — at fit and
+predict time; the GP then models only `log(effort) - baseline_log` over the
+local features. This injects the strong, well-understood size→effort signal as
+structure rather than forcing the GP to relearn it from few points, and lets a
+*pooled* size law (Phase 3) feed the same GP unchanged. With `baseline_log=None`
+the GP keeps its original zero-mean behavior.
 """
 
 from __future__ import annotations
@@ -60,24 +69,36 @@ class LogGaussianProcess:
             X = np.log1p(X)
         return self._scaler.fit_transform(X) if fit else self._scaler.transform(X)
 
-    def fit(self, X: np.ndarray, effort: np.ndarray) -> "LogGaussianProcess":
+    def fit(
+        self, X: np.ndarray, effort: np.ndarray, baseline_log: np.ndarray | None = None
+    ) -> "LogGaussianProcess":
         effort = np.asarray(effort, dtype=float)
         # log() requires positive effort; the caller filters non-positive rows.
         if np.any(effort <= 0):
             raise ValueError("effort must be positive for log-space modeling")
-        # Transform features (train-fold statistics), then fit the GP on log-effort.
-        self._gp.fit(self._transform(X, fit=True), np.log(effort))
+        # Target is log-effort, optionally minus a size-law baseline (mean
+        # function): the GP then learns only what the size law leaves over.
+        target = np.log(effort)
+        if baseline_log is not None:
+            target = target - np.asarray(baseline_log, dtype=float)
+        # Transform features (train-fold statistics), then fit the GP on the target.
+        self._gp.fit(self._transform(X, fit=True), target)
         return self
 
-    def predict_log(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        # Apply the same train-fold transform, then return the GP posterior
-        # mean and standard deviation in log space.
+    def predict_log(
+        self, X: np.ndarray, baseline_log: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        # GP posterior over the (residual) target; re-add the baseline so the
+        # mean is back on the log-effort scale. The std is unchanged by the
+        # additive baseline shift.
         mean, std = self._gp.predict(self._transform(X, fit=False), return_std=True)
+        if baseline_log is not None:
+            mean = mean + np.asarray(baseline_log, dtype=float)
         return mean, std
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: np.ndarray, baseline_log: np.ndarray | None = None) -> np.ndarray:
         # Point estimate in the original unit. exp(mean) maps the log-space
         # mean back to hours; because log is monotone this is the predicted
         # median (p50), which is exactly what PRED(25)/MdAPE should score.
-        mean, _ = self.predict_log(X)
+        mean, _ = self.predict_log(X, baseline_log)
         return np.exp(mean)
