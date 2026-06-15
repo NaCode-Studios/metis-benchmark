@@ -8,7 +8,9 @@ import pytest
 from metis_benchmark.evaluation import (
     ape,
     empirical_coverage,
+    group_split,
     mdape,
+    ordered_kfold,
     pred_at,
     temporal_split,
 )
@@ -76,3 +78,59 @@ def test_temporal_split_rejects_missing_dates():
     df = pd.DataFrame({"date": [pd.Timestamp("2021-01-01"), pd.NaT]})
     with pytest.raises(ValueError):
         temporal_split(df, "date")
+
+
+def test_group_split_keeps_projects_disjoint():
+    # 10 projects, 5 rows each. No project may appear in two blocks at once.
+    groups = pd.Series([f"P{p}" for p in range(10) for _ in range(5)])
+    split = group_split(groups, calibration_fraction=0.2, test_fraction=0.2, seed=0)
+    g = groups.to_numpy()
+    train_g = set(g[split.train])
+    cal_g = set(g[split.calibration])
+    test_g = set(g[split.test])
+    # Pairwise disjoint group sets is the whole point of the cold-start split.
+    assert train_g.isdisjoint(cal_g)
+    assert train_g.isdisjoint(test_g)
+    assert cal_g.isdisjoint(test_g)
+    # Every row is used exactly once across the three blocks.
+    used = np.concatenate([split.train, split.calibration, split.test])
+    assert sorted(used) == list(range(len(groups)))
+
+
+def test_group_split_is_deterministic():
+    # Same seed must reproduce the exact same partition.
+    groups = pd.Series([f"P{p}" for p in range(12) for _ in range(3)])
+    a = group_split(groups, seed=7)
+    b = group_split(groups, seed=7)
+    assert np.array_equal(a.test, b.test)
+
+
+def test_group_split_needs_three_groups():
+    # With only two projects there is no room for train+cal+test.
+    groups = pd.Series(["A", "A", "B", "B"])
+    with pytest.raises(ValueError):
+        group_split(groups)
+
+
+def test_ordered_kfold_partitions_test_blocks():
+    # Across all folds, each row is a test sample exactly once.
+    folds = ordered_kfold(n_samples=50, n_splits=5, seed=0)
+    assert len(folds) == 5
+    all_test = np.concatenate([f.test for f in folds])
+    assert sorted(all_test) == list(range(50))
+
+
+def test_ordered_kfold_blocks_are_disjoint_within_fold():
+    # Inside one fold, train / calibration / test must not overlap.
+    folds = ordered_kfold(n_samples=50, n_splits=5, seed=0)
+    for f in folds:
+        idx = np.concatenate([f.train, f.calibration, f.test])
+        assert len(idx) == len(set(idx.tolist()))
+
+
+def test_ordered_kfold_is_deterministic():
+    # Fixed seed -> identical folds across runs (reproducible, not random).
+    a = ordered_kfold(40, n_splits=4, seed=3)
+    b = ordered_kfold(40, n_splits=4, seed=3)
+    for fa, fb in zip(a, b):
+        assert np.array_equal(fa.test, fb.test)

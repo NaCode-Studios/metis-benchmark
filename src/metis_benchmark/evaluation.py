@@ -70,13 +70,21 @@ def empirical_coverage(y_true: np.ndarray, lower: np.ndarray, upper: np.ndarray)
 
 
 @dataclass(frozen=True)
-class TemporalSplit:
-    """Index sets of a chronological train / calibration / test split."""
+class Split:
+    """Row positions of a train / calibration / test split of one DataFrame.
 
-    # Row positions into the original DataFrame for each block.
+    The calibration block exists for conformal interval calibration: it is
+    always disjoint from both train and test.
+    """
+
     train: np.ndarray
     calibration: np.ndarray
     test: np.ndarray
+
+
+# Backwards-compatible alias: temporal_split historically returned a
+# "TemporalSplit"; the structure is identical for every split method.
+TemporalSplit = Split
 
 
 def temporal_split(
@@ -84,7 +92,7 @@ def temporal_split(
     date_column: str,
     calibration_fraction: float = 0.2,
     test_fraction: float = 0.2,
-) -> TemporalSplit:
+) -> Split:
     """Chronological split: oldest records train, newest records test.
 
     The calibration block sits between train and test so that conformal
@@ -111,8 +119,98 @@ def temporal_split(
         raise ValueError(f"dataset too small for a temporal split: {n} rows")
 
     # Carve the ordered timeline into [train][calibration][test].
-    return TemporalSplit(
+    return Split(
         train=order[:n_train],
         calibration=order[n_train : n_train + n_cal],
         test=order[n_train + n_cal :],
     )
+
+
+def group_split(
+    groups: pd.Series,
+    calibration_fraction: float = 0.2,
+    test_fraction: float = 0.2,
+    seed: int = 0,
+) -> Split:
+    """Split so that no group (project) appears in more than one block.
+
+    Used for the dateless Track B datasets (deepse, josse): the engine trains
+    on some projects and is scored on entirely held-out projects. This is the
+    cold-start scenario — a new client/project with no in-project history —
+    which the protocol selects as the right fallback when a date is missing.
+
+    Allocation is over groups, not rows: blocks therefore hold whole projects.
+    Group order is shuffled with a fixed seed so the partition is reproducible
+    but not tied to the (arbitrary) listing order of projects.
+    """
+    if calibration_fraction + test_fraction >= 1.0:
+        raise ValueError("calibration + test fractions must leave room for training")
+
+    # Unique groups in stable first-appearance order, then a deterministic shuffle.
+    unique_groups = pd.unique(groups)
+    rng = np.random.default_rng(seed)
+    shuffled = rng.permutation(unique_groups)
+
+    # At least one group must land in each block, so we need >= 3 groups.
+    n_groups = len(shuffled)
+    if n_groups < 3:
+        raise ValueError(f"group_split needs at least 3 groups, got {n_groups}")
+    n_test = max(1, int(round(n_groups * test_fraction)))
+    n_cal = max(1, int(round(n_groups * calibration_fraction)))
+    n_train = n_groups - n_test - n_cal
+    if n_train < 1:
+        raise ValueError(f"too few groups for the requested fractions: {n_groups}")
+
+    # Assign whole groups to each block.
+    test_groups = set(shuffled[:n_test])
+    cal_groups = set(shuffled[n_test : n_test + n_cal])
+    # Anything not in test/calibration is training.
+
+    # Map each row to its block via its group membership.
+    values = groups.to_numpy()
+    test_mask = np.isin(values, list(test_groups))
+    cal_mask = np.isin(values, list(cal_groups))
+    train_mask = ~test_mask & ~cal_mask
+
+    # Return row positions (0..n-1) for each block.
+    idx = np.arange(len(groups))
+    return Split(train=idx[train_mask], calibration=idx[cal_mask], test=idx[test_mask])
+
+
+def ordered_kfold(
+    n_samples: int,
+    n_splits: int = 5,
+    calibration_fraction: float = 0.2,
+    seed: int = 0,
+) -> list[Split]:
+    """Deterministic k-fold cross-validation (fixed seed), one Split per fold.
+
+    Last-resort fallback for dateless Track A datasets with no project
+    grouping (cocomo81, china, albrecht). "Ordered" means reproducible
+    (seeded), not temporal: there is no time guarantee here, which the report
+    must state as a caveat.
+
+    Each row serves in the test block of exactly one fold. Within a fold, a
+    calibration slice is carved out of the training rows so conformal
+    intervals can still be calibrated on data unseen by the fitted model.
+    """
+    if n_splits < 2:
+        raise ValueError("k-fold needs at least 2 splits")
+    if n_samples < n_splits:
+        raise ValueError(f"{n_samples} samples cannot fill {n_splits} folds")
+
+    # Shuffle row positions once with the fixed seed, then cut into k folds.
+    rng = np.random.default_rng(seed)
+    shuffled = rng.permutation(n_samples)
+    fold_indices = np.array_split(shuffled, n_splits)
+
+    splits: list[Split] = []
+    for i, test_idx in enumerate(fold_indices):
+        # Training pool is every fold except the current test fold.
+        rest = np.concatenate([fold_indices[j] for j in range(n_splits) if j != i])
+        # Reserve the tail of the training pool as the calibration block.
+        n_cal = max(1, int(round(len(rest) * calibration_fraction)))
+        cal_idx = rest[:n_cal]
+        train_idx = rest[n_cal:]
+        splits.append(Split(train=train_idx, calibration=cal_idx, test=test_idx))
+    return splits
