@@ -20,13 +20,26 @@ from metis_benchmark.evaluation import (
     pred_at,
 )
 from metis_benchmark.track_a.experiment import run_dataset
+from metis_benchmark.track_a.gbm import LogGBMQuantile
 from metis_benchmark.track_a.gp import LogGaussianProcess
 
-# Engine candidates (feature-based regressors). GBM is added in Step 2.
-MODELS = {"GP (engine)": lambda: LogGaussianProcess(seed=0)}
+# Engine candidates (feature-based regressors): GP and GBM compete per dataset.
+MODELS = {
+    "GP (engine)": lambda: LogGaussianProcess(seed=0),
+    "GBM (engine)": lambda: LogGBMQuantile(seed=0),
+}
 
 # Statistical baselines the engine must beat (expert handled separately).
 STAT_BASELINES = ["log-size regression", "median-by-category"]
+
+
+def _verdict(diff) -> str:
+    # Read the paired-difference CI: a win requires the interval to clear 0.
+    if diff.low > 0:
+        return "engine BEATS baseline"
+    if diff.high < 0:
+        return "engine LOSES to baseline"
+    return "indistinguishable within CI"
 
 
 def analyze(key: str) -> None:
@@ -40,26 +53,16 @@ def analyze(key: str) -> None:
         mdape_ci = bootstrap_metric_ci(y_true, y_pred, mdape, seed=0)
         print(f"  {name:<22} PRED(25)={pred_ci}  MdAPE={mdape_ci}")
 
-    # Paired comparison: engine vs the best available statistical baseline, on
-    # the same resampled rows, so we can declare a win or a tie within CI.
-    engine = "GP (engine)"
+    # Paired comparisons on the same resampled rows: each engine candidate vs
+    # the best statistical baseline, so we can declare a win or a tie within CI.
     present = [b for b in STAT_BASELINES if b in run.predictions]
-    # "Best" baseline = highest point PRED(25), the bar the engine must clear.
     best = max(present, key=lambda b: pred_at(*run.scored(b)))
-    yb, _ = run.scored(engine)  # engine and baselines share tested rows here
-    diff = paired_bootstrap_diff(
-        run.y[run.tested_mask],
-        run.predictions[engine][run.tested_mask],
-        run.predictions[best][run.tested_mask],
-        pred_at,
-        seed=0,
-    )
-    verdict = (
-        "engine BEATS baseline" if diff.low > 0
-        else "engine LOSES to baseline" if diff.high < 0
-        else "indistinguishable within CI"
-    )
-    print(f"  -> PRED(25) engine - {best}: {diff}  => {verdict}")
+    m = run.tested_mask
+    for engine in MODELS:
+        diff = paired_bootstrap_diff(
+            run.y[m], run.predictions[engine][m], run.predictions[best][m], pred_at, seed=0
+        )
+        print(f"  -> {engine} − {best}: {diff}  => {_verdict(diff)}")
 
 
 def analyze_aggregate(keys: list[str]) -> None:
@@ -71,28 +74,28 @@ def analyze_aggregate(keys: list[str]) -> None:
     (Q7), and it lifts the sample size out of the tiny-per-dataset regime that
     makes single-split CIs uninformative.
     """
-    yb, eng, base = [], [], []
+    # Pool tested rows across datasets for each model + the reference baseline.
+    pooled: dict[str, list[np.ndarray]] = {name: [] for name in MODELS}
+    pooled["log-size regression"] = []
+    y_pool: list[np.ndarray] = []
     for key in keys:
         run = run_dataset(key, MODELS)
         m = run.tested_mask
-        # Reference baseline = log-size regression (available on every dataset).
-        yb.append(run.y[m])
-        eng.append(run.predictions["GP (engine)"][m])
-        base.append(run.predictions["log-size regression"][m])
-    yb, eng, base = np.concatenate(yb), np.concatenate(eng), np.concatenate(base)
+        y_pool.append(run.y[m])
+        for name in pooled:
+            pooled[name].append(run.predictions[name][m])
+    yb = np.concatenate(y_pool)
+    cols = {name: np.concatenate(parts) for name, parts in pooled.items()}
 
     print(f"\n== AGGREGATE Track A {keys} (n_test={len(yb)}) ==")
-    for name, pred in [("GP (engine)", eng), ("log-size regression", base)]:
+    for name, pred in cols.items():
         pred_ci = bootstrap_metric_ci(yb, pred, pred_at, seed=0)
         mdape_ci = bootstrap_metric_ci(yb, pred, mdape, seed=0)
         print(f"  {name:<22} PRED(25)={pred_ci}  MdAPE={mdape_ci}")
-    diff = paired_bootstrap_diff(yb, eng, base, pred_at, seed=0)
-    verdict = (
-        "engine BEATS baseline" if diff.low > 0
-        else "engine LOSES to baseline" if diff.high < 0
-        else "indistinguishable within CI"
-    )
-    print(f"  -> PRED(25) engine - log-size: {diff}  => {verdict}")
+    base = cols["log-size regression"]
+    for engine in MODELS:
+        diff = paired_bootstrap_diff(yb, cols[engine], base, pred_at, seed=0)
+        print(f"  -> {engine} − log-size: {diff}  => {_verdict(diff)}")
 
 
 if __name__ == "__main__":
