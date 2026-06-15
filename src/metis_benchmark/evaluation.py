@@ -202,6 +202,67 @@ def temporal_split(
     )
 
 
+def rolling_origin_split(
+    df: pd.DataFrame,
+    date_column: str,
+    initial_train_fraction: float = 0.5,
+    n_folds: int = 5,
+    calibration_fraction: float = 0.2,
+    min_test_per_fold: int = 5,
+) -> list[Split]:
+    """Expanding-window temporal cross-validation (protocol v1.2, sec. 8).
+
+    The single 80/20 split wastes data at both ends on small datasets: too few
+    test rows (uninterpretable CIs) and too few training rows (large
+    generalization gap). Rolling-origin reuses the timeline: it fixes an
+    initial training window, then walks a test block forward fold by fold,
+    expanding the training window to include everything before each test block.
+    Every fold is strictly past→future, and the pooled out-of-fold predictions
+    cover the back half of the data instead of a single 20% slice.
+
+    Parameters are the v1.2 pre-registered values; do not retune them per
+    dataset.
+    """
+    if df[date_column].isna().any():
+        raise ValueError(f"missing values in date column '{date_column}'")
+
+    # Chronological order of row positions (stable for deterministic ties).
+    order = np.argsort(df[date_column].to_numpy(), kind="stable")
+    n = len(order)
+
+    # The earliest `initial_train_fraction` of rows is never tested: it seeds
+    # the first training window. The remaining "back" rows are split into folds.
+    n_initial = int(round(n * initial_train_fraction))
+    back = n - n_initial
+    if back < min_test_per_fold:
+        raise ValueError(f"too few rows after the initial window: {back}")
+
+    # Honor the minimum test size: shrink the fold count if 5 folds cannot each
+    # hold `min_test_per_fold` rows (floor of 3, per the pre-registration).
+    folds = min(n_folds, back // min_test_per_fold)
+    folds = max(3, folds) if back >= 3 * min_test_per_fold else folds
+    folds = max(1, folds)
+
+    # Even fold sizes; the last fold absorbs the remainder.
+    fold_size = back // folds
+
+    splits: list[Split] = []
+    for i in range(folds):
+        start = n_initial + i * fold_size
+        # Last fold runs to the end so no row is dropped.
+        stop = n if i == folds - 1 else n_initial + (i + 1) * fold_size
+        test_idx = order[start:stop]
+        # Training window = everything strictly before this test block.
+        train_pool = order[:start]
+        # Calibration = the most recent slice of that window (closest to, but
+        # still before, the test block) so CQR calibrates on near-in-time data.
+        n_cal = max(1, int(round(len(train_pool) * calibration_fraction)))
+        cal_idx = train_pool[len(train_pool) - n_cal :]
+        train_idx = train_pool[: len(train_pool) - n_cal]
+        splits.append(Split(train=train_idx, calibration=cal_idx, test=test_idx))
+    return splits
+
+
 def group_split(
     groups: pd.Series,
     calibration_fraction: float = 0.2,

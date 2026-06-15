@@ -14,6 +14,7 @@ from metis_benchmark.evaluation import (
     ordered_kfold,
     paired_bootstrap_diff,
     pred_at,
+    rolling_origin_split,
     temporal_split,
 )
 
@@ -136,6 +137,44 @@ def test_ordered_kfold_is_deterministic():
     b = ordered_kfold(40, n_splits=4, seed=3)
     for fa, fb in zip(a, b):
         assert np.array_equal(fa.test, fb.test)
+
+
+def test_rolling_origin_is_strictly_past_to_future():
+    # Each fold's entire training+calibration window must end before its test
+    # block begins (no future leakage), and folds expand over time.
+    dates = pd.date_range("2020-01-01", periods=100, freq="D")
+    df = pd.DataFrame({"date": dates.to_numpy()})
+    folds = rolling_origin_split(df, "date", initial_train_fraction=0.5, n_folds=5)
+    assert len(folds) == 5
+    d = df["date"].to_numpy()
+    prev_train_size = -1
+    for f in folds:
+        train_block = np.concatenate([f.train, f.calibration])
+        # Strict temporal order: newest training row precedes oldest test row.
+        assert d[train_block].max() < d[f.test].min()
+        # Expanding window: the training pool grows fold over fold.
+        assert len(train_block) > prev_train_size
+        prev_train_size = len(train_block)
+
+
+def test_rolling_origin_pools_to_back_half():
+    # The pooled test rows cover the back 50% of the data exactly once, with no
+    # overlap between fold test blocks.
+    df = pd.DataFrame({"date": pd.date_range("2020-01-01", periods=100, freq="D").to_numpy()})
+    folds = rolling_origin_split(df, "date", initial_train_fraction=0.5, n_folds=5)
+    pooled = np.concatenate([f.test for f in folds])
+    assert len(pooled) == len(set(pooled.tolist()))  # no row tested twice
+    assert len(pooled) == 50  # back half
+
+
+def test_rolling_origin_respects_min_test_per_fold():
+    # With few back rows, the fold count must drop so each fold keeps >=5 rows.
+    df = pd.DataFrame({"date": pd.date_range("2020-01-01", periods=40, freq="D").to_numpy()})
+    folds = rolling_origin_split(
+        df, "date", initial_train_fraction=0.5, n_folds=5, min_test_per_fold=5
+    )
+    for f in folds:
+        assert len(f.test) >= 5
 
 
 def test_bootstrap_ci_brackets_point_estimate():
