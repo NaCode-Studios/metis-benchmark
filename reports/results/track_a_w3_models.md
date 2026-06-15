@@ -79,3 +79,34 @@ at **43.5%** aggregate — beating the log-size baseline by +12.1% [5.3, 18.8]
 (CI clears zero) but stuck **~12 points below the 55% threshold**. Whether 55%
 is reachable at all is now a question for the honest feasibility ceiling
 (Phase 4), which determines the verdict and the pre-registered stop rule.
+
+## Phase 4 — honest feasibility ceiling: STOP RULE TRIGGERED
+
+The W2 in-sample ceiling (66–78%) measured memorization. The honest ceiling is
+the best **out-of-sample** PRED(25) over a diverse flexible model zoo (GP, GBM,
+RandomForest-500, HistGradientBoosting) under the protocol split.
+Reproduce: `python scripts/run_ceiling.py`.
+
+| Dataset | best model | honest ceiling PRED(25) | resid σ(log) best / size-only |
+|---|---|---|---|
+| desharnais | RF-500 | 46.3% [31.7, 61.0] | 0.61 / 0.61 |
+| kitchenham | GP | 45.2% [34.2, 56.2] | 0.59 / 0.70 |
+| maxwell | GP | 51.6% [35.5, 67.7] | 0.60 / 0.50 |
+| cocomo81 | GP | 41.9% [30.6, 54.8] | 0.57 / 1.01 |
+
+**4 of 4 gate development datasets fall below 55%.** The pre-registered stop
+rule (protocol v1.3 sec. 8) triggers: *55% PRED(25) is not achievable on this
+data*, so Track A closes as "point-accuracy threshold unreachable, demonstrated."
+
+**Why — the irreducible noise.** The best model's out-of-sample log-residual
+scatter is σ ≈ 0.57–0.61 on every dataset: roughly ±60% multiplicative error
+that no model removes. PRED(25) requires landing within ±25%; with this much
+irreducible productivity scatter, the fraction within 25% is structurally
+capped near 45–52%. The recorded, leakage-safe features simply do not explain
+enough of the effort/size productivity variance — the same phenomenon proven
+for China (Q11), now shown to hold across all gate datasets. (On cocomo81 the
+features do help a lot — σ 1.01→0.57 — but not enough to clear 55%.)
+
+**This validates the W3 negative results.** The mean function and hierarchical
+pooling did not fail to be implemented; they failed to help because there is no
+more signal to extract. The ceiling is the data's, not the model's.
