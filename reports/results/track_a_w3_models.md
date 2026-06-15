@@ -43,3 +43,39 @@ degradation and residual recovery); it simply is not the missing ingredient.
 The mean function is retained in the codebase (it is the substrate Phase 3's
 pooling builds on) but GP-isolated stays the primary unless Phase 3 pooling
 beats it.
+
+## Phase 3 — hierarchical partial pooling: also NEGATIVE (does not help)
+
+Pooled global slope (empirical Bayes, never-test initial windows of the three
+rolling-origin dev datasets): **b_0 = 0.557, τ² = 0** — the datasets' size→effort
+elasticities are consistent enough that DerSimonian–Laird finds no between-dataset
+variance, so the pooled slope is a single shared elasticity.
+
+PRED(25), out-of-fold:
+
+| Dataset | GP-isolated | GP-meanfn | GP-pooled | GBM | log-size |
+|---|---|---|---|---|---|
+| desharnais | 38.5% | 41.1% | (≈39%) | 39.7% | 32.9% |
+| maxwell | 51.6% | 38.7% | 38.7% | 41.9% | 29.0% |
+| cocomo81 | 41.9% | 40.3% | 38.7% | 22.6% | 24.2% |
+| china (out-gate) | 19.2% | 20.0% | 19.4% | 20.4% | 22.0% |
+| **aggregate (4 gate)** | **43.5% [36.7, 50.2]** | 41.5% | 41.5% [35.3, 48.3] | 35.3% | 31.4% |
+
+Paired: **GP-pooled − GP-isolated = −1.9% [−6.3, +2.9]** (aggregate) — indistinguishable,
+slightly negative.
+
+**Finding.** The "main move" of W3 does **not** help either. Pooling the
+size-law slope across datasets is neutral-to-slightly-negative versus the
+zero-mean GP, for the same reason the mean function failed: the GP already
+models the size effect through its features, so constraining it with a shared
+size law — pooled or not — removes flexibility without adding information. The
+pooling machinery is correct (unit-tested: differential shrinkage, DL τ²
+estimation, leakage-free global from never-test rows); it is simply not the
+missing ingredient.
+
+**Phase 2 + 3 conclusion.** Neither the mean function nor hierarchical pooling
+closes the gap. The best Track A model remains the **W2 zero-mean GP-isolated**
+at **43.5%** aggregate — beating the log-size baseline by +12.1% [5.3, 18.8]
+(CI clears zero) but stuck **~12 points below the 55% threshold**. Whether 55%
+is reachable at all is now a question for the honest feasibility ceiling
+(Phase 4), which determines the verdict and the pre-registered stop rule.

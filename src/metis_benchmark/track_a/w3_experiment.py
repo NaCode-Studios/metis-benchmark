@@ -88,3 +88,20 @@ def size_law_baseline_log(size_tr, y_tr, size_eval) -> np.ndarray:
     """log-space prediction of the per-dataset log-size power law, fit on train."""
     reg = LogSizeRegression().fit(size_tr, y_tr)
     return np.log(reg.predict(size_eval))
+
+
+def initial_window(key: str, fraction: float = 0.5) -> tuple[np.ndarray, np.ndarray]:
+    """(size, effort) of the earliest `fraction` of a temporal dataset's rows.
+
+    These never-test initial-window rows are the only ones allowed to feed the
+    pooled global slope (protocol v1.3 addendum), so the global is leakage-free.
+    Only defined for temporal datasets.
+    """
+    if SPLIT_METHOD[key] != "temporal":
+        raise ValueError(f"{key} is not temporal; it cannot contribute to the global")
+    df = load(key).dropna(subset=["effort", "size", "date"]).reset_index(drop=True)
+    df = df[df["effort"] > 0].reset_index(drop=True)
+    order = np.argsort(df["date"].to_numpy(), kind="stable")
+    n_init = int(round(len(order) * fraction))
+    idx = order[:n_init]
+    return df["size"].to_numpy(dtype=float)[idx], df["effort"].to_numpy(dtype=float)[idx]
