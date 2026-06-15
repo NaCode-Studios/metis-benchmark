@@ -109,8 +109,13 @@ def encode_features(df: pd.DataFrame, key: str) -> pd.DataFrame:
                 out[c] = df[c].map(COCOMO_ORDINAL).astype(float)
     else:
         # Coerce every feature to a float; non-numeric markers become NaN.
+        # The ARFF reader strips leading/trailing whitespace from attribute
+        # names, so look up the stripped column name (the SEERA feature list
+        # preserves the source spelling, some with trailing spaces).
+        available = {c.strip(): c for c in df.columns}
         for c in cols:
-            out[c] = pd.to_numeric(df[c], errors="coerce")
+            src = available.get(c.strip())
+            out[c] = pd.to_numeric(df[src], errors="coerce") if src is not None else np.nan
     return out
 
 

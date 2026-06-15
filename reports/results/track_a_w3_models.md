@@ -110,3 +110,18 @@ features do help a lot — σ 1.01→0.57 — but not enough to clear 55%.)
 **This validates the W3 negative results.** The mean function and hierarchical
 pooling did not fail to be implemented; they failed to help because there is no
 more signal to extract. The ceiling is the data's, not the model's.
+
+## Phase 5 — SEERA holdout opened once; coverage rechecked
+
+SEERA (the sealed holdout) was opened a single time for the verdict. GP-isolated
+PRED(25) = 25.4% [15.3, 37.3]; honest ceiling (best of the zoo) = **33.9%, < 55%**
+— confirming the stop-rule conclusion on data that played no role in development.
+SEERA is a hard dataset (Sudanese projects, high heterogeneity); the expert is
+also weak there (25.4%), so the engine ties the expert.
+
+CQR coverage including SEERA (n=204): nominal 90% → empirical **94.6%
+[91.5, 97.7]** — still within the 5-point tolerance (PASS), slightly
+conservative. More calibration data did not break the guarantee.
+
+Full verdict and the pre-registered W4-vs-Track-B decision:
+[track_a_W3_verdict.md](track_a_W3_verdict.md).

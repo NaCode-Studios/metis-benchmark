@@ -43,10 +43,16 @@ requirements. Sources are listed in
 - [x] Metrics, baselines, temporal split (tested)
 - [x] Week 1 — dataset download (10/10 gate datasets), EDA,
       [data dictionary](reports/data_dictionary.md), baseline smoke test,
-      protocol ready to freeze
-- [ ] Week 2 — Track A (GP + GBM quantile + CQR), Track B (embeddings + k-NN)
-- [ ] Week 3 — full backtest, calibration plots, cold-start curve, model vs expert
-- [ ] Week 4 — public technical report, G0 decision
+      protocol frozen
+- [x] Week 2 — Track A GP + GBM quantile + CQR; rolling-origin estimator (v1.2);
+      [partial Track A verdict](reports/results/track_a_G0_verdict.md)
+- [x] Week 3 — Track A feature expansion (cocomo81, seera), mean-function GP,
+      hierarchical pooling, honest feasibility ceiling →
+      **[Track A final verdict](reports/results/track_a_W3_verdict.md): not
+      passing, 55% proven unreachable on public tabular data; closed
+      best-effort; proceeding to Track B**
+- [ ] Track B — semantic channel (JOSSE, SiP): embeddings + k-NN + reranking
+- [ ] Week 4+ — full G0 decision (needs Track B), then public report
 
 ## Citations
 

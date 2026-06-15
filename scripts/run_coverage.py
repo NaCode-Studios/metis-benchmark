@@ -22,12 +22,13 @@ from pathlib import Path
 import numpy as np
 
 from metis_benchmark.conformal import ConformalizedQuantile
-from metis_benchmark.datasets.loaders import load
-from metis_benchmark.evaluation import empirical_coverage, rolling_origin_split
-from metis_benchmark.track_a.features import FEATURE_COLUMNS
 from metis_benchmark.track_a.gbm import LogGBMQuantile
+from metis_benchmark.track_a.w3_experiment import load_dataset
 
-GATE_DATASETS = ["desharnais", "kitchenham", "maxwell"]
+# W3 verdict: SEERA holdout added; cocomo81 included (dateless -> ordered k-fold
+# via its rolling_origin fallback in the harness is not valid, so coverage is
+# measured on the dated datasets that support a calibration block).
+GATE_DATASETS = ["desharnais", "kitchenham", "maxwell", "seera"]
 # Nominal coverages to sweep; 0.90 is the gate level. Each maps to a lower/upper
 # quantile pair (alpha/2, 1-alpha/2).
 NOMINAL_LEVELS = [0.50, 0.70, 0.80, 0.90, 0.95]
@@ -42,26 +43,27 @@ def _pair(level: float) -> tuple[float, float]:
 
 
 def coverage_for_level(level: float) -> tuple[float, int]:
-    """Pooled CQR coverage at one nominal level across the gate datasets."""
+    """Pooled CQR coverage at one nominal level across the gate datasets.
+
+    Uses the shared harness folds (encoding + train-median imputation), so the
+    calibration block of each rolling-origin fold feeds CQR consistently.
+    """
     lo_q, hi_q = _pair(level)
     captured: list[np.ndarray] = []
     for key in GATE_DATASETS:
-        df = load(key).dropna(subset=["effort", "date", *FEATURE_COLUMNS[key]]).reset_index(drop=True)
-        df = df[df["effort"] > 0].reset_index(drop=True)
-        X = df[FEATURE_COLUMNS[key]].to_numpy(dtype=float)
-        y = df["effort"].to_numpy(dtype=float)
-        for fold in rolling_origin_split(df, "date"):
-            # Fit all quantiles on the fold's training rows.
-            model = LogGBMQuantile(quantiles=tuple(QUANTILES), seed=0).fit(X[fold.train], y[fold.train])
-            qcal = model.predict_quantiles(X[fold.calibration])
-            qte = model.predict_quantiles(X[fold.test])
-            # Calibrate CQR on this fold's calibration block (per dataset/scale).
-            cqr = ConformalizedQuantile(alpha=1 - level).calibrate(
-                qcal[lo_q], qcal[hi_q], y[fold.calibration]
-            )
+        data = load_dataset(key, mode="rolling")
+        # Re-derive the calibration block per fold: the harness pools train+cal
+        # into Fold.train, so refit calibration as the most recent slice of it.
+        for f in data.folds:
+            n_cal = max(1, int(round(len(f.Xtr) * 0.2)))
+            X_fit, X_cal, X_te = f.Xtr[:-n_cal], f.Xtr[-n_cal:], f.Xte
+            y_fit, y_cal, y_te = f.ytr[:-n_cal], f.ytr[-n_cal:], f.yte
+            model = LogGBMQuantile(quantiles=tuple(QUANTILES), seed=0).fit(X_fit, y_fit)
+            qcal = model.predict_quantiles(X_cal)
+            qte = model.predict_quantiles(X_te)
+            cqr = ConformalizedQuantile(alpha=1 - level).calibrate(qcal[lo_q], qcal[hi_q], y_cal)
             lo, hi = cqr.interval(qte[lo_q], qte[hi_q])
-            # Record per-row capture (1 if inside the conformal interval).
-            captured.append(((y[fold.test] >= lo) & (y[fold.test] <= hi)).astype(float))
+            captured.append(((y_te >= lo) & (y_te <= hi)).astype(float))
     pooled = np.concatenate(captured)
     return float(pooled.mean()), len(pooled)
 
