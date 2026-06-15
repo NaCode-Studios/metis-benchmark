@@ -23,7 +23,12 @@ from metis_benchmark.evaluation import (
     rolling_origin_split,
     temporal_split,
 )
-from metis_benchmark.track_a.features import FEATURE_COLUMNS, SPLIT_METHOD
+from metis_benchmark.track_a.features import (
+    FEATURE_COLUMNS,
+    SPLIT_METHOD,
+    encode_features,
+    impute_train_median,
+)
 
 
 class Regressor(Protocol):
@@ -123,15 +128,19 @@ def run_dataset(key: str, models: dict[str, ModelFactory], mode: str = "single")
     """
     df = load(key).reset_index(drop=True)
     feature_cols = FEATURE_COLUMNS[key]
-    needed = ["effort", "size", *feature_cols]
+    # Require only the target, size and (for temporal datasets) the date. Missing
+    # *features* are no longer a reason to drop a row — they are imputed with the
+    # training-fold median (v1.3), so datasets with sparse soft attributes (seera)
+    # keep their rows instead of being decimated.
+    needed = ["effort", "size"]
     if SPLIT_METHOD[key] == "temporal":
         needed.append("date")
-    # Drop rows lacking the target or any model input, so all models compete on
-    # exactly the same rows.
     df = df.dropna(subset=needed).reset_index(drop=True)
     df = df[df["effort"] > 0].reset_index(drop=True)
 
-    X = df[feature_cols].to_numpy(dtype=float)
+    # Encode features to numeric (ordinal for COCOMO, coercion elsewhere); NaNs
+    # are imputed per fold below.
+    X = encode_features(df, key).to_numpy(dtype=float)
     y = df["effort"].to_numpy(dtype=float)
     size = df["size"].to_numpy(dtype=float)
     n = len(df)
@@ -144,8 +153,10 @@ def run_dataset(key: str, models: dict[str, ModelFactory], mode: str = "single")
     gate_regressor: str | None = None
     if mode == "rolling" and SPLIT_METHOD[key] == "temporal" and "GBM (engine)" in models:
         first_train = folds[0][0]
+        # Impute on the first training window only (test-blind selection input).
+        X_sel = impute_train_median(X[first_train])[0]
         gate_regressor = select_gate_regressor(
-            X[first_train], y[first_train], size[first_train], models
+            X_sel, y[first_train], size[first_train], models
         )
 
     # Prediction vectors, NaN-initialized; filled only on each model's test rows.
@@ -160,12 +171,15 @@ def run_dataset(key: str, models: dict[str, ModelFactory], mode: str = "single")
 
     for tr, te in folds:
         tested_mask[te] = True
+        # Impute missing features with the training-fold median (test rows get
+        # the train medians too — no test statistics leak into imputation).
+        Xtr, Xte = impute_train_median(X[tr], X[te])
         # Feature-based regressors (engine candidates).
         fitted = {}
         for name, factory in models.items():
-            model = factory().fit(X[tr], y[tr])
+            model = factory().fit(Xtr, y[tr])
             fitted[name] = model
-            preds[name][te] = model.predict(X[te])
+            preds[name][te] = model.predict(Xte)
         # The selected gate regressor reuses the already-fitted model.
         if gate_regressor is not None:
             preds["gate (selected)"][te] = fitted[gate_regressor].predict(X[te])
