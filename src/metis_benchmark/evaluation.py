@@ -13,6 +13,7 @@ documented fallback must be declared in the report.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -67,6 +68,81 @@ def empirical_coverage(y_true: np.ndarray, lower: np.ndarray, upper: np.ndarray)
     # Observed coverage: share of actuals captured by their interval. Must
     # match the declared nominal level (e.g. 0.90) on unseen data.
     return float(np.mean((y_true >= lower) & (y_true <= upper)))
+
+
+Metric = Callable[[np.ndarray, np.ndarray], float]
+
+
+@dataclass(frozen=True)
+class CI:
+    """A point estimate with a bootstrap confidence interval."""
+
+    point: float
+    low: float
+    high: float
+
+    def __str__(self) -> str:
+        return f"{self.point:.1%} [{self.low:.1%}, {self.high:.1%}]"
+
+
+def bootstrap_metric_ci(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    metric: Metric,
+    n_boot: int = 2000,
+    alpha: float = 0.05,
+    seed: int = 0,
+) -> CI:
+    """Bootstrap confidence interval of a metric by resampling test rows.
+
+    Track A test blocks are tiny (12-29 projects), so a single PRED(25) point
+    is noisy. Resampling the rows with replacement and recomputing the metric
+    many times turns that noise into an explicit interval, which is what makes
+    every engine-vs-baseline comparison decidable rather than anecdotal.
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    n = len(y_true)
+    rng = np.random.default_rng(seed)
+    stats = np.empty(n_boot)
+    for b in range(n_boot):
+        # Resample row positions with replacement (a bootstrap replicate of the
+        # test set) and recompute the metric on that replicate.
+        idx = rng.integers(0, n, n)
+        stats[b] = metric(y_true[idx], y_pred[idx])
+    # The 2.5th/97.5th percentiles give the 95% interval (percentile bootstrap).
+    low, high = np.percentile(stats, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return CI(point=float(metric(y_true, y_pred)), low=float(low), high=float(high))
+
+
+def paired_bootstrap_diff(
+    y_true: np.ndarray,
+    pred_a: np.ndarray,
+    pred_b: np.ndarray,
+    metric: Metric,
+    n_boot: int = 2000,
+    alpha: float = 0.05,
+    seed: int = 0,
+) -> CI:
+    """Bootstrap CI of the metric difference metric(a) - metric(b).
+
+    Paired: both models are scored on the *same* resampled rows each replicate,
+    so the comparison cancels the shared sampling noise of the test block. If
+    the interval excludes 0 the difference is significant; if it straddles 0
+    the two models are indistinguishable within the data we have.
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    pred_a = np.asarray(pred_a, dtype=float)
+    pred_b = np.asarray(pred_b, dtype=float)
+    n = len(y_true)
+    rng = np.random.default_rng(seed)
+    diffs = np.empty(n_boot)
+    for b in range(n_boot):
+        idx = rng.integers(0, n, n)
+        diffs[b] = metric(y_true[idx], pred_a[idx]) - metric(y_true[idx], pred_b[idx])
+    low, high = np.percentile(diffs, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    point = float(metric(y_true, pred_a) - metric(y_true, pred_b))
+    return CI(point=point, low=float(low), high=float(high))
 
 
 @dataclass(frozen=True)

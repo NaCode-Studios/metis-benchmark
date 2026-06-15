@@ -7,10 +7,12 @@ import pytest
 
 from metis_benchmark.evaluation import (
     ape,
+    bootstrap_metric_ci,
     empirical_coverage,
     group_split,
     mdape,
     ordered_kfold,
+    paired_bootstrap_diff,
     pred_at,
     temporal_split,
 )
@@ -134,3 +136,45 @@ def test_ordered_kfold_is_deterministic():
     b = ordered_kfold(40, n_splits=4, seed=3)
     for fa, fb in zip(a, b):
         assert np.array_equal(fa.test, fb.test)
+
+
+def test_bootstrap_ci_brackets_point_estimate():
+    # The CI must contain the full-sample point estimate, with low <= high.
+    rng = np.random.default_rng(0)
+    y = rng.uniform(100, 1000, size=200)
+    pred = y * rng.uniform(0.7, 1.3, size=200)
+    ci = bootstrap_metric_ci(y, pred, pred_at, n_boot=1000, seed=1)
+    assert ci.low <= ci.point <= ci.high
+
+
+def test_bootstrap_ci_zero_width_when_perfect():
+    # Perfect predictions -> PRED(25) is 1.0 on every resample, so the CI
+    # collapses to a point.
+    y = np.array([100.0, 200.0, 300.0, 400.0])
+    ci = bootstrap_metric_ci(y, y.copy(), pred_at, n_boot=500, seed=0)
+    assert ci.point == pytest.approx(1.0)
+    assert ci.low == pytest.approx(1.0)
+    assert ci.high == pytest.approx(1.0)
+
+
+def test_paired_bootstrap_diff_detects_clear_winner():
+    # pred_a is near-perfect, pred_b is badly biased: the PRED(25) difference
+    # must be positive with a CI that excludes 0.
+    rng = np.random.default_rng(2)
+    y = rng.uniform(100, 1000, size=300)
+    pred_a = y * rng.uniform(0.95, 1.05, size=300)
+    pred_b = y * 2.0
+    diff = paired_bootstrap_diff(y, pred_a, pred_b, pred_at, n_boot=1000, seed=3)
+    assert diff.point > 0
+    assert diff.low > 0
+
+
+def test_paired_bootstrap_diff_straddles_zero_for_ties():
+    # Two equally-noisy models (noise wide enough that PRED(25) varies, not a
+    # saturated 1.0) -> the difference CI should contain 0.
+    rng = np.random.default_rng(4)
+    y = rng.uniform(100, 1000, size=300)
+    pred_a = y * rng.uniform(0.6, 1.4, size=300)
+    pred_b = y * rng.uniform(0.6, 1.4, size=300)
+    diff = paired_bootstrap_diff(y, pred_a, pred_b, pred_at, n_boot=1000, seed=5)
+    assert diff.low < 0 < diff.high

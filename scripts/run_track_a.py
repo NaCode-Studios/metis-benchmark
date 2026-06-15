@@ -1,10 +1,8 @@
-"""Engine-vs-baseline run on the Track A datasets.
+"""Track A engine-vs-baseline run with bootstrap confidence intervals.
 
-Fits the GP and the protocol baselines on the same split and reports
-PRED(25)/MdAPE on the pooled test rows. The split method follows the frozen
-protocol per dataset (temporal where a date exists, ordered k-fold CV for the
-dateless China). Every row is predicted exactly once, by a model that did not
-train on it.
+For each dataset: out-of-fold PRED(25)/MdAPE per model with a 95% bootstrap CI,
+plus a paired bootstrap of the engine-minus-best-baseline difference to state
+whether the win holds or the models are indistinguishable within the data.
 
 Usage: python scripts/run_track_a.py [china desharnais kitchenham maxwell]
 """
@@ -14,82 +12,92 @@ from __future__ import annotations
 import sys
 
 import numpy as np
-import pandas as pd
 
-from metis_benchmark.baselines import LogSizeRegression, MedianByCategory
-from metis_benchmark.datasets.loaders import load
-from metis_benchmark.evaluation import mdape, ordered_kfold, pred_at, temporal_split
-from metis_benchmark.track_a.features import FEATURE_COLUMNS, SPLIT_METHOD
+from metis_benchmark.evaluation import (
+    bootstrap_metric_ci,
+    mdape,
+    paired_bootstrap_diff,
+    pred_at,
+)
+from metis_benchmark.track_a.experiment import run_dataset
+from metis_benchmark.track_a.gp import LogGaussianProcess
 
+# Engine candidates (feature-based regressors). GBM is added in Step 2.
+MODELS = {"GP (engine)": lambda: LogGaussianProcess(seed=0)}
 
-def _folds(df: pd.DataFrame, key: str) -> list[tuple[np.ndarray, np.ndarray]]:
-    """Return (train_idx, test_idx) pairs per the dataset's protocol split."""
-    if SPLIT_METHOD[key] == "temporal":
-        # One chronological split: a single (train, test) pair. The calibration
-        # block is reserved for conformal intervals (next step), not used here.
-        s = temporal_split(df, "date")
-        return [(np.concatenate([s.train, s.calibration]), s.test)]
-    # Dateless, ungrouped -> 5-fold CV; pool train+calibration for the point model.
-    return [(np.concatenate([f.train, f.calibration]), f.test) for f in ordered_kfold(len(df), 5, seed=0)]
+# Statistical baselines the engine must beat (expert handled separately).
+STAT_BASELINES = ["log-size regression", "median-by-category"]
 
 
-def run(key: str) -> None:
-    df = load(key).reset_index(drop=True)
-    feature_cols = FEATURE_COLUMNS[key]
-    # Require a positive target and complete features/size for a fair comparison.
-    needed = ["effort", "size", *feature_cols]
-    if SPLIT_METHOD[key] == "temporal":
-        needed.append("date")
-    df = df.dropna(subset=needed).reset_index(drop=True)
-    df = df[df["effort"] > 0].reset_index(drop=True)
+def analyze(key: str) -> None:
+    run = run_dataset(key, MODELS)
+    print(f"\n== {key} (n_test={run.n_test}, {run.split}, features={len(run.features)}) ==")
 
-    X = df[feature_cols].to_numpy(dtype=float)
-    y = df["effort"].to_numpy(dtype=float)
-    size = df["size"].to_numpy(dtype=float)
-    n = len(df)
+    # Point estimate + 95% CI for every model present, on its tested rows.
+    for name in run.predictions:
+        y_true, y_pred = run.scored(name)
+        pred_ci = bootstrap_metric_ci(y_true, y_pred, pred_at, seed=0)
+        mdape_ci = bootstrap_metric_ci(y_true, y_pred, mdape, seed=0)
+        print(f"  {name:<22} PRED(25)={pred_ci}  MdAPE={mdape_ci}")
 
-    # Out-of-fold prediction vectors for the engine and each baseline.
-    gp_pred = np.full(n, np.nan)
-    size_pred = np.full(n, np.nan)
-    cat_pred = np.full(n, np.nan)
-    # The expert estimate is a recorded column, but it must be scored on the
-    # same held-out test rows as the models, never on the training rows it was
-    # made for; tested_mask marks the rows that served as test somewhere.
-    expert_col = df["expert_estimate"].to_numpy(dtype=float) if "expert_estimate" in df else None
-    expert_pred = np.full(n, np.nan) if expert_col is not None else None
-    tested_mask = np.zeros(n, dtype=bool)
+    # Paired comparison: engine vs the best available statistical baseline, on
+    # the same resampled rows, so we can declare a win or a tie within CI.
+    engine = "GP (engine)"
+    present = [b for b in STAT_BASELINES if b in run.predictions]
+    # "Best" baseline = highest point PRED(25), the bar the engine must clear.
+    best = max(present, key=lambda b: pred_at(*run.scored(b)))
+    yb, _ = run.scored(engine)  # engine and baselines share tested rows here
+    diff = paired_bootstrap_diff(
+        run.y[run.tested_mask],
+        run.predictions[engine][run.tested_mask],
+        run.predictions[best][run.tested_mask],
+        pred_at,
+        seed=0,
+    )
+    verdict = (
+        "engine BEATS baseline" if diff.low > 0
+        else "engine LOSES to baseline" if diff.high < 0
+        else "indistinguishable within CI"
+    )
+    print(f"  -> PRED(25) engine - {best}: {diff}  => {verdict}")
 
-    from metis_benchmark.track_a.gp import LogGaussianProcess
 
-    for tr, te in _folds(df, key):
-        tested_mask[te] = True
-        # Engine: GP on the dataset's features, in log space.
-        gp_pred[te] = LogGaussianProcess(seed=0).fit(X[tr], y[tr]).predict(X[te])
-        # Baseline 1: log-size regression on the canonical size measure.
-        size_pred[te] = LogSizeRegression().fit(size[tr], y[tr]).predict(size[te])
-        # Baseline 2: median-by-category, only where the dataset has categories.
-        if "category" in df and df["category"].notna().any():
-            cat = MedianByCategory().fit(df.loc[tr, "category"], pd.Series(y[tr]))
-            cat_pred[te] = cat.predict(df.loc[te, "category"])
+def analyze_aggregate(keys: list[str]) -> None:
+    """Pooled engine-vs-baseline across datasets (the gate-relevant view).
 
-    if expert_pred is not None:
-        # Restrict the expert baseline to the tested rows for a fair comparison.
-        expert_pred[tested_mask] = expert_col[tested_mask]
+    PRED(25) and the APEs behind MdAPE are unitless, so test rows from
+    different datasets can be pooled even though their effort units differ.
+    Pooling is exactly the aggregate-per-track judgement the protocol uses
+    (Q7), and it lifts the sample size out of the tiny-per-dataset regime that
+    makes single-split CIs uninformative.
+    """
+    yb, eng, base = [], [], []
+    for key in keys:
+        run = run_dataset(key, MODELS)
+        m = run.tested_mask
+        # Reference baseline = log-size regression (available on every dataset).
+        yb.append(run.y[m])
+        eng.append(run.predictions["GP (engine)"][m])
+        base.append(run.predictions["log-size regression"][m])
+    yb, eng, base = np.concatenate(yb), np.concatenate(eng), np.concatenate(base)
 
-    split_label = "temporal" if SPLIT_METHOD[key] == "temporal" else "ordered 5-fold CV"
-    print(f"== {key} (n={n}, {split_label}) ==")
-    rows = [("GP (engine)", gp_pred), ("log-size regression", size_pred)]
-    if not np.all(np.isnan(cat_pred)):
-        rows.append(("median-by-category", cat_pred))
-    if expert_pred is not None:
-        rows.append(("expert estimate", expert_pred))
-    for name, pred in rows:
-        # Score only rows where the model produced a prediction.
-        keep = ~np.isnan(pred)
-        print(f"  {name:<22} PRED(25)={pred_at(y[keep], pred[keep]):5.1%}  "
-              f"MdAPE={mdape(y[keep], pred[keep]):5.1%}  (n={keep.sum()})")
+    print(f"\n== AGGREGATE Track A {keys} (n_test={len(yb)}) ==")
+    for name, pred in [("GP (engine)", eng), ("log-size regression", base)]:
+        pred_ci = bootstrap_metric_ci(yb, pred, pred_at, seed=0)
+        mdape_ci = bootstrap_metric_ci(yb, pred, mdape, seed=0)
+        print(f"  {name:<22} PRED(25)={pred_ci}  MdAPE={mdape_ci}")
+    diff = paired_bootstrap_diff(yb, eng, base, pred_at, seed=0)
+    verdict = (
+        "engine BEATS baseline" if diff.low > 0
+        else "engine LOSES to baseline" if diff.high < 0
+        else "indistinguishable within CI"
+    )
+    print(f"  -> PRED(25) engine - log-size: {diff}  => {verdict}")
 
 
 if __name__ == "__main__":
-    for key in sys.argv[1:] or ["china", "desharnais", "kitchenham", "maxwell"]:
-        run(key)
+    keys = sys.argv[1:] or ["china", "desharnais", "kitchenham", "maxwell"]
+    for key in keys:
+        analyze(key)
+    # Aggregate over the gate-carrying temporal datasets (China excluded: Q11).
+    analyze_aggregate(["desharnais", "kitchenham", "maxwell"])
