@@ -37,9 +37,12 @@ seconds. Convert to hours for reporting.
 
 - **Log-normality**: log-effort skew is between −0.34 and +0.64 on all ten
   datasets — modeling z = log(effort) is appropriate everywhere.
-- **True temporal split** (day-level dates): kitchenham, sip. **Year-level
-  ordering** (coarse but usable): desharnais, maxwell, seera. **No dates**:
-  cocomo81, china, albrecht, deepse, josse → fallback split must be declared.
+- **Split method per dataset** (verified 2026-06-12, frozen in protocol.md
+  sec. 2): **temporal** — kitchenham, sip (day-level), desharnais, maxwell,
+  seera (year-level, coarse but ≥5 distinct values). **Group-by-project** —
+  deepse (14), josse (371): dateless Track B, split on held-out projects
+  (cold-start). **Ordered k-fold CV** — cocomo81, china, albrecht: dateless
+  Track A, no grouping, declared caveat.
 - **Expert baseline available on 4 datasets**: kitchenham, seera (Track A),
   josse, sip (Track B) — the model-vs-human comparison is possible on both
   tracks, not only Track B.

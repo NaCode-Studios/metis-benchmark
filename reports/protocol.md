@@ -1,12 +1,15 @@
 # Evaluation protocol — Metis benchmark (Gate G0)
 
-> Status: **v1.0 — READY TO FREEZE** (2026-06-12). Pending only: G0 signer
-> designation and two unit confirmations (sec. 7) — neither affects thresholds.
-> Once frozen, thresholds and rules in this document do not change after seeing
-> results; any amendment must be recorded here with date and motivation.
-> Note: the only experiments run before this version were the *baseline*
-> smoke tests (scripts/smoke_baselines.py), which set the bar — no engine
-> model has seen any test block.
+> Status: **v1.1 — FROZEN** (2026-06-12). Thresholds and rules below do not
+> change after seeing results; any amendment must be recorded here with date
+> and motivation, and may only tighten the gate, never loosen it.
+> Note: the only experiments run before the freeze were the *baseline* smoke
+> tests (scripts/smoke_baselines.py), which set the bar — no engine model has
+> seen any test block.
+>
+> **G0 decider: the founder.** The thresholds in sec. 5 are fixed at this
+> freeze and are not revisable downward after results are seen. The decider's
+> role at G0 is to apply them, not to renegotiate them.
 
 ## 1. Question under test
 
@@ -18,20 +21,34 @@ Validation runs on two tracks:
 
 - **Track A — project level** (tabular channel): PROMISE (Desharnais, COCOMO81,
   China, Kitchenham, Maxwell, Albrecht) + SEERA.
-- **Track B — task level with text** (semantic channel): Deep-SE, JOSSE, SiP;
+- **Track B — task level with text** (semantic channel): **gate-valid: JOSSE
+  and SiP** (real effort in seconds / hours). Deep-SE is **secondary
+  evidence** for the semantic retrieval, not a gate dataset (see sec. 5).
   TAWOS as retrieval scale only (not part of the gate).
 
 ## 2. Split policy
 
-- **Temporal split only**: oldest records train, middle block calibrates the
-  conformal intervals, newest records test. Never random.
-- Default fractions: 60% train / 20% calibration / 20% test.
-- Date granularity per dataset (see data_dictionary.md): day-level —
-  kitchenham, sip; year-level ordering — desharnais, maxwell, seera.
-- **Fallback split** (no usable date): cocomo81, china, albrecht, deepse,
-  josse → ordered 5-fold cross-validation on a fixed seed, declared in the
-  report with an explicit caveat. For deepse, the numeric suffix of the issue
-  key gives per-project creation ordering and is used as the temporal proxy.
+Split method is assigned per dataset by feasibility, verified 2026-06-12
+(scripts feeding data_dictionary.md). Never a plain random split.
+
+- **Temporal split** — oldest records train, middle block calibrates the
+  conformal intervals, newest records test. Default fractions 60/20/20.
+  Used where a usable date exists (≥5 distinct values):
+  desharnais, kitchenham, maxwell, seera (Track A), sip (Track B).
+  Caveat: desharnais/maxwell/seera dates are year-level (coarse ordering,
+  many ties); kitchenham and sip are day-level.
+- **Group-by-project split** — train on a set of projects, test on held-out
+  projects (grouped k-fold, no project spans train and test). Used for the
+  dateless Track B datasets that carry a project field: deepse (14 projects),
+  josse (371 projects). This is deliberately the cold-start scenario — a new
+  client/project with no in-project history — which is the hardest and most
+  product-relevant case for Metis, so it is the right fallback here rather
+  than a weaker proxy. The deepse issue-key suffix may be used as a secondary
+  within-project temporal robustness check, not as the gate split.
+- **Ordered k-fold CV** (fixed seed) — last-resort fallback for dateless
+  Track A datasets with no project grouping: cocomo81, china, albrecht.
+  Declared in the report with an explicit caveat that no temporal guarantee
+  applies.
 
 ## 3. Metrics
 
@@ -66,10 +83,28 @@ statistical baselines.
 | PRED(25) | ≥ 55% on at least **2 datasets of each track** |
 | MdAPE | ≤ 22% on at least **2 datasets of each track** |
 | Empirical coverage | within **5 points** of the nominal 90% |
-| Baselines | engine beats all three, including the expert where recorded (kitchenham, seera, josse, sip) |
+| Statistical baselines | engine beats median-by-category and log-size regression wherever computable |
+| Expert baseline | engine beats the expert **in aggregate per track**, not per single dataset (see below) |
 
-Albrecht (24 rows) does not count toward the "2 datasets per track" rule —
-kept for completeness only. TAWOS is outside the gate by design.
+**Gate-valid datasets** (count toward the "2 datasets per track" rule):
+- Track A: desharnais, cocomo81, china, kitchenham, maxwell, seera.
+- Track B: **JOSSE and SiP only**.
+
+Excluded from the gate count:
+- **Deep-SE** — its effort label is story points, which measures agreement
+  with each team's own pointing convention, not accuracy in hours. It serves
+  as secondary evidence that semantic retrieval works, reported alongside but
+  never as a gate threshold (decision 2026-06-12).
+- **Albrecht** (24 rows) — too small; kept for completeness.
+- **TAWOS** — retrieval scale only, by design.
+
+**Beating the expert — aggregate, not per-dataset (decision 2026-06-12).**
+The expert comparison is judged on the pooled expert-annotated test rows of a
+track, not dataset by dataset. Rationale: on small datasets (e.g. kitchenham,
+~29 test rows) the expert's PRED(25) of 65.5% carries a wide confidence
+interval, so a per-dataset hard gate would let noise drive a go/no-go call.
+The G0 minute still reports the per-dataset expert comparison next to the
+aggregate, for full transparency.
 
 Thresholds are deliberately more conservative than the pilot KPIs
 (PRED(25) ≥ 60%, MdAPE ≤ 20%): public datasets are more heterogeneous than a
@@ -96,13 +131,20 @@ line of client code; if iteration is not enough, documented stop.
   100,000 issues total, ordered by issue creation date. TAWOS is used for
   retrieval scale only and contributes nothing to the gate.
 
-## 7. Open items
+## 7. Decisions log
 
-- [x] Verify download sources and licenses per dataset (registry.py, 2026-06-12)
+Frozen at v1.1 (2026-06-12):
+- [x] Sources and licenses per dataset verified (registry.py)
 - [x] Data dictionary per dataset (reports/data_dictionary.md)
-- [x] List of datasets requiring the non-temporal fallback split (sec. 2)
+- [x] Split method assigned per dataset by feasibility (sec. 2)
 - [x] TAWOS subset declaration (sec. 6)
-- [ ] Confirm Albrecht effort unit against the literature and SEERA effort
-  unit against "SEERA dataset attribute formulas.pdf" (affects reporting
-  conversion only, not thresholds)
-- [ ] Who signs G0
+- [x] G0 decider = founder; thresholds fixed, not revisable downward (header)
+- [x] "Beat the expert" judged in aggregate per track, not per dataset (sec. 5)
+- [x] Deep-SE excluded from the gate count (story-point label) (sec. 5)
+
+Outside the freeze (reporting only, do not affect thresholds):
+- [ ] Confirm Albrecht effort unit against the literature
+- [ ] Confirm SEERA effort unit against "SEERA dataset attribute formulas.pdf"
+
+These two units cancel inside PRED(25)/MdAPE (both are ratios), so they are
+needed only for the euro conversion in the final report, not for the gate.
