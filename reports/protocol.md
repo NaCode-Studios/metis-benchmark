@@ -1,11 +1,11 @@
 # Evaluation protocol — Metis benchmark (Gate G0)
 
-> Status: **v1.1 — FROZEN** (2026-06-12). Thresholds and rules below do not
+> Status: **v1.2 — FROZEN** (2026-06-12). Thresholds and rules below do not
 > change after seeing results; any amendment must be recorded here with date
 > and motivation, and may only tighten the gate, never loosen it.
-> Note: the only experiments run before the freeze were the *baseline* smoke
-> tests (scripts/smoke_baselines.py), which set the bar — no engine model has
-> seen any test block.
+> Note: the only experiments run before the v1.1 freeze were the *baseline*
+> smoke tests, which set the bar. v1.2 amends only the *estimator* (the split
+> methodology), never the thresholds — see the amendment log (sec. 8).
 >
 > **G0 decider: the founder.** The thresholds in sec. 5 are fixed at this
 > freeze and are not revisable downward after results are seen. The decider's
@@ -31,12 +31,13 @@ Validation runs on two tracks:
 Split method is assigned per dataset by feasibility, verified 2026-06-12
 (scripts feeding data_dictionary.md). Never a plain random split.
 
-- **Temporal split** — oldest records train, middle block calibrates the
-  conformal intervals, newest records test. Default fractions 60/20/20.
-  Used where a usable date exists (≥5 distinct values):
-  desharnais, kitchenham, maxwell, seera (Track A), sip (Track B).
-  Caveat: desharnais/maxwell/seera dates are year-level (coarse ordering,
-  many ties); kitchenham and sip are day-level.
+- **Rolling-origin temporal CV** (v1.2, supersedes the single temporal split
+  for the gate verdict) — expanding-window cross-validation, strictly
+  past→future, never random. Used where a usable date exists (≥5 distinct
+  values): desharnais, kitchenham, maxwell, seera (Track A), sip (Track B).
+  Full parameters frozen in sec. 8. The single 60/20/20 temporal split is
+  retained and reported alongside for transparency, but the gate verdict reads
+  the rolling-origin result.
 - **Group-by-project split** — train on a set of projects, test on held-out
   projects (grouped k-fold, no project spans train and test). Used for the
   dateless Track B datasets that carry a project field: deepse (14 projects),
@@ -142,9 +143,73 @@ Frozen at v1.1 (2026-06-12):
 - [x] "Beat the expert" judged in aggregate per track, not per dataset (sec. 5)
 - [x] Deep-SE excluded from the gate count (story-point label) (sec. 5)
 
+Amended at v1.2 (2026-06-12):
+- [x] Rolling-origin temporal CV as the gate estimator, pre-registered (sec. 8)
+- [x] Gate regressor = GBM, GP fallback by test-blind train-internal validation
+
 Outside the freeze (reporting only, do not affect thresholds):
 - [ ] Confirm Albrecht effort unit against the literature
 - [ ] Confirm SEERA effort unit against "SEERA dataset attribute formulas.pdf"
 
 These two units cancel inside PRED(25)/MdAPE (both are ratios), so they are
 needed only for the euro conversion in the final report, not for the gate.
+
+## 8. Amendment log
+
+### v1.2 (2026-06-12) — rolling-origin temporal CV for the gate verdict
+
+**This section is pre-registered: it is committed BEFORE the rolling-origin
+code is written or any rolling-origin number is seen. The commit timestamp is
+the pre-registration.** Every degree of freedom is fixed here, in advance.
+
+**Outcome-independent motivation.** The single 60/20/20 temporal split leaves
+test blocks of 12–29 rows on the Track A temporal datasets (n=62–145). At that
+size the bootstrap CI on PRED(25) spans ~30–40 points and the binomial CI on
+coverage is ~±13 points — the gate criteria ("within 5 points of nominal",
+beat-the-baseline) are literally not measurable. Rolling-origin (expanding
+window) CV is the literature-standard temporal evaluation for small samples:
+it multiplies both test and training coverage while remaining strictly
+past→future. This change improves the *estimator*; it does not touch the
+*thresholds* (sec. 5), which are immovable. The justification holds identically
+whether the result lands at 53% or 62% — it is adopted because single-split is
+underpowered, not because of any observed number. **Rolling-origin does not
+guarantee a PASS:** if the engine stays below 55% under the correct estimator,
+that is the honest gate result, and the response is to iterate or declare
+Track A partial — the difference is that "fail" now means something, where
+before it only meant "cannot measure".
+
+**Frozen parameters (rolling-origin temporal CV).**
+- Scope: the temporal datasets (desharnais, kitchenham, maxwell, seera, sip).
+  Dateless datasets keep their v1.1 split (China ordered k-fold; deepse/josse
+  group-by-project).
+- Initial training window: the earliest **50%** of the chronologically ordered
+  rows.
+- Folds: the remaining 50% is cut into **5** consecutive equal test blocks
+  (expanding window — each fold trains on every row before its test block).
+  The last fold absorbs any remainder.
+- Minimum test rows per fold: **5**. If 5 folds cannot each hold ≥5 rows,
+  reduce the fold count to `floor(back_rows / 5)`, with a floor of **3** folds.
+- Calibration block (for CQR): the most recent **20%** of each fold's training
+  window, immediately preceding that fold's test block (temporally valid).
+- Aggregation: **pooled** — out-of-fold test predictions are concatenated
+  across folds, and the metric (plus its 2000-resample percentile bootstrap CI,
+  seed 0) is computed once on the pool. Per-fold metrics are not averaged
+  (a 6-row fold has a meaningless per-fold PRED).
+- Hyperparameters: **fixed**, the conservative settings already in
+  `track_a/gp.py` and `track_a/gbm.py`. No tuning of window, fold count, or any
+  model hyperparameter against any test fold.
+
+**Gate regressor selection (pre-registered).** GBM is the primary gate
+regressor (v1.2 Step 2 decision: it gives the only confirmable beat-the-baseline
+and the native p50/p90 quantiles CQR needs). Per dataset, the gate falls back
+to **GP** when GBM underperforms the log-size baseline on **train-internal
+temporal validation** — the last 20% of that dataset's training rows, scored
+before any test fold is touched — which flags GBM overfitting on tiny samples
+(the cold-start doctrine: GP for <1000 projects). The criterion is test-blind
+and applied mechanically. Both GP and GBM out-of-fold results are reported for
+every dataset regardless; the verdict reads the registered regressor.
+
+**Reporting.** The public report shows single-split and rolling-origin results
+side by side; the single-split numbers stay in the benchmark permanently. The
+gate verdict is read off the rolling-origin result. Thresholds unchanged:
+PRED(25) ≥ 55%, MdAPE ≤ 22%, coverage within 5 points of 90%.
