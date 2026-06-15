@@ -312,3 +312,31 @@ numbers, not on optimism.
 - [x] GP primary (supersedes v1.2 GBM-primary, pre-W3-results)
 - [x] Mean-function GP and hierarchical pooling pre-registered
 - [x] Honest-ceiling stop rule pre-registered (Phase 4)
+
+### v1.3 addendum (2026-06-12, pre-registered before pooling code) — exact pooling procedure
+
+Refines the Phase-3 hierarchical pooling of v1.3 with the precise,
+leakage-free estimation procedure, fixed before any pooled number is produced.
+
+- **What is pooled: the slope only.** The power law is
+  `log(effort) = a_d + b_d·log(size)`. The slope `b_d` (size→effort
+  elasticity) is dimensionless and comparable across datasets, so it is
+  partial-pooled toward a global `b_0`. The intercept `a_d` carries the unit
+  (person-hours vs person-months) and stays **per-dataset, free** — never
+  pooled — refit on each fold's training rows given the pooled slope.
+- **Empirical-Bayes shrinkage.** Per-dataset slope `b_d` and its standard
+  error (within variance `σ²_d`) come from an OLS log-log fit on training rows.
+  The global `b_0` and between-dataset variance `τ²` use the DerSimonian–Laird
+  random-effects estimator. The pooled slope is the precision-weighted shrink
+  `b_d^pool = (b_d/σ²_d + b_0/τ²)/(1/σ²_d + 1/τ²)` — the V20
+  `μ = (n·y + k·μ_sector)/(n+k)` form with `k = σ²_d/τ²`, estimated from data,
+  not by hand.
+- **Leakage-free global.** `b_0` and `τ²` are estimated only from rows that are
+  **never test rows anywhere**: the initial training window (earliest 50%) of
+  each rolling-origin dataset, which the expanding window always keeps in
+  training. The dateless datasets (cocomo81, china) test every row across
+  folds, so they **receive** shrinkage but **do not contribute** to the global.
+  No test-fold row of any dataset enters the global. The global is fixed across
+  folds.
+- **At the verdict**, SEERA's initial window joins the global contributors;
+  this is part of running the frozen pipeline once, not a development decision.
