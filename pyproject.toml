@@ -27,6 +27,10 @@ semantic = [
     "sentence-transformers>=2.6",
     "onnxruntime>=1.17",
 ]
+# Calibration plots for the coverage report
+plots = [
+    "matplotlib>=3.8",
+]
 dev = [
     "pytest>=8.0",
     "ruff>=0.4",
