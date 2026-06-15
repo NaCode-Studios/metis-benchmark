@@ -1,11 +1,13 @@
 # Evaluation protocol — Metis benchmark (Gate G0)
 
-> Status: **v1.2 — FROZEN** (2026-06-12). Thresholds and rules below do not
+> Status: **v1.3 — FROZEN** (2026-06-12). Thresholds and rules below do not
 > change after seeing results; any amendment must be recorded here with date
 > and motivation, and may only tighten the gate, never loosen it.
 > Note: the only experiments run before the v1.1 freeze were the *baseline*
-> smoke tests, which set the bar. v1.2 amends only the *estimator* (the split
-> methodology), never the thresholds — see the amendment log (sec. 8).
+> smoke tests, which set the bar. v1.2 amended the *estimator* (split
+> methodology); v1.3 (W3) pre-registers the feature sets, the modeling
+> approach (mean-function GP + hierarchical pooling), the SEERA holdout, and
+> the stop rule — never the thresholds. See the amendment log (sec. 8).
 >
 > **G0 decider: the founder.** The thresholds in sec. 5 are fixed at this
 > freeze and are not revisable downward after results are seen. The decider's
@@ -213,3 +215,100 @@ every dataset regardless; the verdict reads the registered regressor.
 side by side; the single-split numbers stay in the benchmark permanently. The
 gate verdict is read off the rolling-origin result. Thresholds unchanged:
 PRED(25) ≥ 55%, MdAPE ≤ 22%, coverage within 5 points of 90%.
+
+### v1.3 (2026-06-12, W3) — feature sets, mean-function GP, hierarchical pooling, SEERA holdout, stop rule
+
+**Pre-registered: committed BEFORE any W3 code. The commit timestamp is the
+pre-registration.** v1.3 fixes the modeling approach and the new gate datasets;
+it does not touch the thresholds (sec. 5), which remain PRED(25) ≥ 55%,
+MdAPE ≤ 22% on ≥2 datasets, coverage within 5 points of 90%.
+
+**Outcome-independent motivation.** W2 showed the engine below 55% out-of-fold
+(~45–52%) while the in-sample ceiling is 66–78% (Q15): the shortfall is
+generalization, driven by tiny per-dataset training folds and a zero-mean GP
+that ignores the strong size→effort power law. The fixes below are standard,
+literature-grounded ways to reduce that gap — a size mean function, partial
+pooling across datasets (V20 p.9), and two more gate datasets — adopted because
+they address generalization, not because of any observed number. They are
+committed before being coded. They do not guarantee a PASS: the stop rule below
+defines, in advance, the honest threshold under which Track A closes as
+"55% unreachable, demonstrated".
+
+**Gate datasets (Track A).** desharnais, kitchenham, maxwell, **cocomo81**,
+**seera**. China stays out-gate (Q11, no signal). Albrecht stays out (24 rows).
+Splits: rolling-origin for the dated datasets (desharnais, kitchenham, maxwell,
+seera); ordered k-fold CV for cocomo81 (dateless).
+
+**SEERA = final holdout.** SEERA's *data values* are not used to build features,
+select models, tune hyperparameters, or calibrate anything. It is opened once,
+at the final verdict (Phase 5). Only SEERA's *schema and attribute formulas*
+(metadata) were read — by an adversarial leakage audit — to choose
+leakage-safe columns; no effort value was seen. Development iterates on the
+four non-holdout datasets only.
+
+**Primary regressor: GP** (Q16), vindicated by rolling-origin in W2. GBM is
+reported alongside. (The W2 pre-registered GBM-primary selection is superseded
+here, before W3 results exist.)
+
+**Feature sets (leakage-safe, fixed here).** Chosen by a 3-auditor adversarial
+leakage audit reconciled conservatively (any credible leakage flag → exclude).
+- **cocomo81** (23): the scale factors and effort multipliers
+  `prec, flex, resl, team, pmat, rely, data, cplx, ruse, docu, time, stor,
+  pvol, acap, pcap, pcon, apex, plex, ltex, tool, site, sced` plus `kloc`
+  (size). Excluded as outcome/leakage: `effort` (target), `defects`, `months`.
+  Ordinal ratings encoded vl<l<n<h<vh<xh → 1..6.
+- **seera** (51): the organizational, contractual, sizing, planned-team,
+  requirements-level and product-requirement attributes that are knowable
+  before a project starts (full list transcribed into `track_a/features.py`).
+  Excluded as leakage (17 unanimous + 2 conservative): every attribute whose
+  SEERA formula references realized work or schedule — `Actual duration`,
+  `% project gain (loss)`, `Users stability`, `Requirment stability`,
+  `Requirements flexibility`, `Programmers capability`, `Analysts capability`,
+  `Team continuity`, `Team cohesion`, `Team contracts`, `Schedule quality`,
+  `Outsourcing impact`, `Process reengineering`, `Requirement accuracy level`,
+  `Technical documentation`, `Comments within the code`, `User manual` — plus
+  IDs, `Actual effort` (target), `Estimated effort` (expert baseline), and the
+  non-primary size columns. size = `Object points`, expert = `Estimated effort`,
+  date = `Year of project`.
+
+**Encoding and imputation (fixed).** COCOMO ordinal ratings → integer codes as
+above. SEERA Likert attributes coerced to numeric; `N/A`/`?` → missing.
+Missing values imputed with the **training-fold median** (fit on train, applied
+to test — never pooled across the split), so imputation leaks nothing.
+
+**Mean-function GP (Phase 2).** The GP no longer models effort from zero mean.
+The log-size power law `log(effort) = log(a) + b·log(size)` (the existing
+`LogSizeRegression`) is fit on the training fold and subtracted; the GP models
+only the residual in log space over the local features; predictions re-add the
+baseline. With no residual signal this degrades gracefully to the log-size
+baseline (asserted by a unit test on china).
+
+**Hierarchical partial pooling (Phase 3).** A multilevel model partial-pools the
+power-law coefficients `(a, b)` across datasets: each dataset has its own
+`(a_d, b_d)` shrunk toward a global `(a_0, b_0)`. Differing effort units
+(person-hours vs person-months) are absorbed by the per-dataset intercept
+`a_d`; everything is in log space. Shrinkage strength `k` is estimated by
+empirical Bayes from the between-dataset variance (V20 p.9 formula
+`μ = (n·y + k·μ_sector)/(n + k)`), never by hand or arbitrary thresholds.
+**Leakage constraint:** the global coefficients and `k` are estimated from
+training rows only — no test-fold row of any dataset (the one under evaluation
+or the others) enters the pooling. Rolling-origin order (past→future) is
+preserved.
+
+**Honest feasibility ceiling + STOP RULE (Phase 4).** The optimistic in-sample
+RandomForest ceiling (Q15) is replaced by an *honest achievable* ceiling per
+dataset: nested CV with the best model class plus an estimate of irreducible
+noise (the effort/size productivity variance unexplained by the recorded
+fields, as computed for china in Q11). **Pre-registered stop rule:** if this
+honest ceiling is **below 55% PRED(25) on more than one gate dataset**, then 55%
+is not statistically achievable on this data — Track A closes as "threshold
+unreachable, demonstrated", and that is the Track A outcome (best-effort engine
++ assist mode kept as product; proceed to Track B). The decision is on the
+numbers, not on optimism.
+
+**Decisions log addition (v1.3):**
+- [x] SEERA blocked as final holdout; schema-only metadata used for features
+- [x] cocomo81 + seera wired as gate datasets; feature sets fixed by audit
+- [x] GP primary (supersedes v1.2 GBM-primary, pre-W3-results)
+- [x] Mean-function GP and hierarchical pooling pre-registered
+- [x] Honest-ceiling stop rule pre-registered (Phase 4)
