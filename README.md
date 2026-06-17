@@ -6,6 +6,9 @@ Metis MVP by [NaCode Studios](https://nacodestudios.it): if the engine does
 not beat the standard baselines — and the human expert, where datasets record
 one — the product does not get built.
 
+> 📄 **Read the report: [Can a model estimate software effort from public data?](reports/REPORT.md)**
+> A pre-registered blind test across nine datasets — and an honest negative result.
+
 ## What is being tested
 
 Two tracks, mirroring the engine's two channels:
