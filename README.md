@@ -51,8 +51,13 @@ requirements. Sources are listed in
       **[Track A final verdict](reports/results/track_a_W3_verdict.md): not
       passing, 55% proven unreachable on public tabular data; closed
       best-effort; proceeding to Track B**
-- [ ] Track B — semantic channel (JOSSE, SiP): embeddings + k-NN + reranking
-- [ ] Week 4+ — full G0 decision (needs Track B), then public report
+- [x] Track B — semantic channel (JOSSE, SiP): bge embeddings + k-NN
+      Nadaraya-Watson + cross-encoder + learned-regressor ceiling →
+      **[Track B verdict](reports/results/track_b_semantic.md): not passing —
+      text does not predict logged effort cross-project (ceiling 15–20%)**
+- [x] **[Full G0 verdict](reports/results/G0_full_verdict.md): NO-GO on the
+      public gate — both channels proven below 55%; intervals honest;
+      expert-assist + proprietary-data pilot are the evidence-based next steps**
 
 ## Citations
 
