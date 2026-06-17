@@ -10,6 +10,7 @@ from metis_benchmark.evaluation import (
     bootstrap_metric_ci,
     empirical_coverage,
     group_split,
+    grouped_kfold,
     mdape,
     ordered_kfold,
     paired_bootstrap_diff,
@@ -113,6 +114,22 @@ def test_group_split_needs_three_groups():
     groups = pd.Series(["A", "A", "B", "B"])
     with pytest.raises(ValueError):
         group_split(groups)
+
+
+def test_grouped_kfold_tests_every_group_once_disjointly():
+    # 10 projects, 4 tasks each; across folds every task is tested exactly once,
+    # and within a fold no project spans fit/calibration/test.
+    groups = pd.Series([f"P{p}" for p in range(10) for _ in range(4)])
+    folds = grouped_kfold(groups, n_splits=5, seed=0)
+    assert len(folds) == 5
+    g = groups.to_numpy()
+    all_test = []
+    for f in folds:
+        fit_g, cal_g, test_g = set(g[f.train]), set(g[f.calibration]), set(g[f.test])
+        assert fit_g.isdisjoint(test_g) and cal_g.isdisjoint(test_g) and fit_g.isdisjoint(cal_g)
+        all_test.append(f.test)
+    pooled = np.concatenate(all_test)
+    assert sorted(pooled) == list(range(len(groups)))
 
 
 def test_ordered_kfold_partitions_test_blocks():

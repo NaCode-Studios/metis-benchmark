@@ -314,6 +314,47 @@ def group_split(
     return Split(train=idx[train_mask], calibration=idx[cal_mask], test=idx[test_mask])
 
 
+def grouped_kfold(
+    groups: pd.Series,
+    n_splits: int = 5,
+    calibration_fraction: float = 0.2,
+    seed: int = 0,
+) -> list[Split]:
+    """Grouped k-fold: every group is the test set in exactly one fold.
+
+    The Track B gate version of group_split — instead of one held-out block it
+    rotates the held-out projects across folds, so every task is predicted once
+    from a model trained only on *other* projects (cross-project cold start).
+    A slice of the training groups is reserved for conformal calibration.
+    """
+    unique_groups = pd.unique(groups)
+    rng = np.random.default_rng(seed)
+    shuffled = rng.permutation(unique_groups)
+    n_groups = len(shuffled)
+    if n_groups < n_splits:
+        raise ValueError(f"{n_groups} groups cannot fill {n_splits} folds")
+
+    # Partition the shuffled groups into n_splits contiguous blocks.
+    group_folds = np.array_split(shuffled, n_splits)
+    values = groups.to_numpy()
+    idx = np.arange(len(groups))
+
+    splits: list[Split] = []
+    for i in range(n_splits):
+        test_groups = set(group_folds[i])
+        # Remaining groups are training; reserve some of them for calibration.
+        train_groups = [g for j in range(n_splits) if j != i for g in group_folds[j]]
+        n_cal = max(1, int(round(len(train_groups) * calibration_fraction)))
+        cal_groups = set(train_groups[:n_cal])
+        fit_groups = set(train_groups[n_cal:])
+
+        test_mask = np.isin(values, list(test_groups))
+        cal_mask = np.isin(values, list(cal_groups))
+        fit_mask = np.isin(values, list(fit_groups))
+        splits.append(Split(train=idx[fit_mask], calibration=idx[cal_mask], test=idx[test_mask]))
+    return splits
+
+
 def ordered_kfold(
     n_samples: int,
     n_splits: int = 5,
