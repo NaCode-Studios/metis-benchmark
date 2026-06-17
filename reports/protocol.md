@@ -340,3 +340,82 @@ leakage-free estimation procedure, fixed before any pooled number is produced.
   folds.
 - **At the verdict**, SEERA's initial window joins the global contributors;
   this is part of running the frozen pipeline once, not a development decision.
+
+### v2.0 (2026-06-12) — Track B pre-registration (semantic channel)
+
+**Pre-registered: committed BEFORE any Track B code. The commit timestamp is
+the pre-registration.** Thresholds unchanged (sec. 5): PRED(25) ≥ 55%,
+MdAPE ≤ 22% on ≥2 datasets, coverage within 5 points of 90%.
+
+**Outcome-independent motivation.** Track A proved that project-level tabular
+cost-driver features cap PRED(25) near ~50% (irreducible σ≈0.6). The V20 thesis
+is that the *text* of requirements carries similarity signal those tables lack:
+semantically close tasks should have similar effort (V20 Fig 2). Track B tests
+exactly that, on task-level data with real effort and recorded human estimates.
+This is Metis's actual differentiation; it is validated here on its own merits.
+A negative is still possible and the stop rule below defines it in advance.
+
+**Gate-valid datasets (exactly two — both must clear the per-dataset bar):**
+- **JOSSE** — JIRA tasks (Apache/JBoss/Spring), effort = `actual_effort` in
+  seconds (JIRA timespent), ~19% carry an expert estimate. Split:
+  **group-by-project** (371 projects) — cross-project cold-start, the hard and
+  product-relevant case (a new client retrieves only from other projects).
+- **SiP** — 10k task estimates with `HoursActual` and a developer estimate
+  (`HoursEstimate`, the expert) for every task. Split: **rolling-origin**
+  temporal CV (has dates 2004–2014).
+
+**Secondary (not gate):** Deep-SE (story points, group-by-project, 14 projects)
+— evidence the retrieval works on text, reported alongside, never a gate number
+(Q8). TAWOS stays retrieval-scale-only, out of this validation.
+
+**Caveat (recorded up front):** JOSSE and SiP effort are *logged* time, which
+is noisier than project ledgers. Higher irreducible noise is expected; the
+honest ceiling (below) will quantify whether 55% is reachable on this data.
+
+**Semantic engine (the candidate).**
+- Embeddings: **BAAI/bge-small-en-v1.5** (384-d, local, normalized) over the
+  task text (title + description; `corpus` for JOSSE). Deterministic, no
+  training → no embedding leakage. (The V20 "BGE via ONNX" model family; ONNX
+  is a deployment detail, irrelevant to validation.)
+- Retrieval + prediction: k-NN by cosine similarity over the training index,
+  Nadaraya–Watson kernel-weighted mean in log space —
+  `ŷ = exp(Σ wᵢ·log(yᵢ) / Σ wᵢ)`, `wᵢ = exp((sᵢ − 1)/τ)` (V20). `k` and `τ`
+  are selected per dataset by **test-blind train-internal validation** from a
+  fixed grid (k ∈ {5,10,20,50}, τ ∈ {0.05,0.1,0.2}), never against the test.
+- Reranking (Phase B4, pre-registered enhancement): a cross-encoder
+  (`cross-encoder/ms-marco-MiniLM-L-6-v2`) re-scores the top-50 cosine
+  candidates before weighting; reported as a separate variant.
+
+**Baselines (mandatory, same discipline as Track A).** Global median
+(text-blind floor — the engine must beat it to prove text carries signal);
+median-by-category where present (SiP `Category`; JOSSE project); and the
+**human expert** (JOSSE ~19%, SiP all) — the binding bar, judged in aggregate
+per track (Q7). An embedding→GBM regressor is also reported, to compare learned
+regression on embeddings against k-NN retrieval.
+
+**Leakage discipline.**
+- Group-by-project (JOSSE, Deep-SE): the retrieval index excludes every
+  held-out project entirely — a test task retrieves only from other projects.
+- Rolling-origin (SiP): the index holds past tasks only; future never leaks.
+- k/τ (and any reranker threshold) selected on train-internal validation only.
+- Large datasets are embedded in full (JOSSE ~23k, SiP ~12k); no subsampling
+  of gate datasets.
+
+**Honest ceiling + STOP RULE (same as W3).** The honest ceiling per gate
+dataset = best out-of-sample PRED(25) over a zoo {k-NN-NW (best k/τ),
+embedding→GBM, embedding→RF, TF-IDF k-NN (lexical reference)}. If the ceiling
+is below 55% on both gate datasets, 55% is unreachable on this data and Track B
+closes as "threshold unreachable, demonstrated". Decision on the numbers.
+
+**Full G0.** Track A is closed not-passing (W3). If Track B passes its gate,
+the full G0 is a partial/conditional pass on the semantic channel; if Track B
+also fails, the G0 is a documented no-go on public data, and the product
+decision (assist mode, within-project vs cold-start, Phase-1 pilot to get
+proprietary data) is taken on the evidence. Repo publication still requires a
+genuine pass (Q6).
+
+**Decisions log addition (v2.0):**
+- [x] Track B datasets/splits fixed: JOSSE (group-by-project), SiP (rolling-origin)
+- [x] Embedding model fixed: bge-small-en-v1.5, local, normalized
+- [x] Predictor: k-NN Nadaraya–Watson (log space), k/τ test-blind selected
+- [x] Honest-ceiling stop rule pre-registered for Track B
