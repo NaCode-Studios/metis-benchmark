@@ -11,6 +11,9 @@ from metis_benchmark.evaluation import (
     empirical_coverage,
     group_split,
     grouped_kfold,
+    mcnemar_discordant_for_power,
+    mcnemar_mde,
+    mcnemar_sample_size,
     mdape,
     ordered_kfold,
     paired_bootstrap_diff,
@@ -234,3 +237,40 @@ def test_paired_bootstrap_diff_straddles_zero_for_ties():
     pred_b = y * rng.uniform(0.6, 1.4, size=300)
     diff = paired_bootstrap_diff(y, pred_a, pred_b, pred_at, n_boot=1000, seed=5)
     assert diff.low < 0 < diff.high
+
+
+def test_mcnemar_sample_size_reproduces_the_preregistered_table():
+    # McNemar power table (alpha=0.05 two-sided, power=0.80).
+    # pi1=0.73, p_disc=0.15 -> ~35 discordant, ~230 projects.
+    r = mcnemar_sample_size(0.73, 0.15)
+    assert round(r["discordant_pairs"]) == 35
+    assert 225 <= r["n_projects"] <= 235
+    # pi1=0.80, p_disc=0.20 -> ~19 discordant, ~95 projects.
+    r = mcnemar_sample_size(0.80, 0.20)
+    assert round(r["discordant_pairs"]) == 19
+    assert 90 <= r["n_projects"] <= 100
+    # pi1=0.85, p_disc=0.25 -> ~13 discordant, ~55 projects.
+    r = mcnemar_sample_size(0.85, 0.25)
+    assert round(r["discordant_pairs"]) == 13
+    assert 50 <= r["n_projects"] <= 58
+
+
+def test_mcnemar_sample_size_rejects_a_null_effect():
+    # pi1 must express an effect in A's favour; 0.5 (the null) is not detectable.
+    with pytest.raises(ValueError):
+        mcnemar_sample_size(0.5, 0.15)
+
+
+def test_mcnemar_mde_shows_small_studies_can_only_be_inconclusive():
+    # At N=40 with p_disc=0.15 only ~6 discordant pairs exist; the minimal
+    # detectable effect is an unrealistic pi1 ~ 0.96 -> INCONCLUSIVE guaranteed.
+    assert mcnemar_mde(40, 0.15) > 0.95
+    # N grows -> a realistic effect becomes detectable; N=300 reaches ~0.70.
+    assert mcnemar_mde(300, 0.15) < 0.72
+    # MDE is monotone: more projects detect a smaller (closer-to-0.5) effect.
+    assert mcnemar_mde(150, 0.15) < mcnemar_mde(80, 0.15) < mcnemar_mde(40, 0.15)
+
+
+def test_mcnemar_discordant_for_power_matches_closed_form():
+    # Spot-check the formula against a hand value: pi1=0.80 -> m≈19.3.
+    assert mcnemar_discordant_for_power(0.80) == pytest.approx(19.3, abs=0.3)

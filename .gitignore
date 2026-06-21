@@ -12,3 +12,14 @@ __pycache__/
 .ruff_cache/
 .ipynb_checkpoints/
 .DS_Store
+
+# --- WS-E leak guard (see ../docs/phase-1/repo-split.md) ---------------------
+# The Stage-3 pilot harness (gate/verdict/client-schema) lives in the PRIVATE
+# `metis-core` package, NOT here — this repo becomes PUBLIC at the Q6 trigger.
+# run_pilot.py + its tests were MOVED to metis-core (2026-06-21); this guard is
+# kept as redundancy so an accidental copy can never re-enter the public history.
+# The engine modules (payload, composite_gp, multilingual) are PUBLIC and
+# intentionally NOT ignored — they belong in the benchmark for G0 reproducibility.
+scripts/run_pilot.py
+tests/test_pilot_smoke.py
+tests/test_pilot_verdict.py

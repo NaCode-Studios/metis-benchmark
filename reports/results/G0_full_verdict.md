@@ -46,8 +46,16 @@ set.** This is informative, not fatal — it tells where the value is and is not
 - **Where value remains (evidence-based):**
   - **Calibrated intervals** are real and distribution-free (coverage holds).
     "Here is a range that holds 90% of the time" is deliverable today.
-  - **Assist mode** lifts an existing expert estimate (kitchenham 61.6% → 68.5%)
-    — Metis as an expert *amplifier*, not a cold-start replacement.
+  - **Assist mode** is positioned as *calibrated intervals around the expert's
+    estimate*, NOT as an accuracy lift. The paired test (assist vs expert, n=73) does **not**
+    demonstrate that adding the expert estimate beats the expert: McNemar
+    p=0.2266; ΔPRED(25) +6.8% with CI [−1.4%, +15.1%] (includes zero); on MdAPE
+    assist is if anything slightly worse (+0.6%). The test is **under-powered**
+    (~11 discordant pairs, power ≈0.16), so this is *absence of proof, not proof
+    of absence* — but the un-demonstrated point gain must never be sold as an
+    accuracy improvement. What is demonstrated is the *calibration* (coverage
+    94.6%). (Earlier drafts framed the 61.6%→68.5% point change as a positive
+    direction; that framing is retracted here.)
   - **Proprietary, in-organization data** is the untested hypothesis: the gate
     used cross-project cold start (hardest case) on *public* logged time. A
     single client's own history — same team, same logging conventions, same

@@ -59,7 +59,7 @@ Split method is assigned per dataset by feasibility, verified 2026-06-12
 |--------|------------|----------------|
 | PRED(25) | share of estimates within 25% of the actual | `evaluation.pred_at` |
 | MdAPE | median absolute percentage error | `evaluation.mdape` |
-| Coverage | share of actuals inside the conformal p50–p90 interval | `evaluation.empirical_coverage` |
+| Coverage | share of actuals inside the conformal interval at the nominal level (p5–p95 for 90%) | `evaluation.empirical_coverage` |
 
 Target variable is modeled in log space: z = log(effort).
 
@@ -203,7 +203,7 @@ before it only meant "cannot measure".
 
 **Gate regressor selection (pre-registered).** GBM is the primary gate
 regressor (v1.2 Step 2 decision: it gives the only confirmable beat-the-baseline
-and the native p50/p90 quantiles CQR needs). Per dataset, the gate falls back
+and the native quantile predictions CQR needs — e.g. p5/p95 for the 90% interval). Per dataset, the gate falls back
 to **GP** when GBM underperforms the log-size baseline on **train-internal
 temporal validation** — the last 20% of that dataset's training rows, scored
 before any test fold is touched — which flags GBM overfitting on tiny samples

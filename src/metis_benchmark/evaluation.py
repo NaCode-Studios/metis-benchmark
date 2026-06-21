@@ -145,6 +145,95 @@ def paired_bootstrap_diff(
     return CI(point=point, low=float(low), high=float(high))
 
 
+def pred_hits(y_true: np.ndarray, y_pred: np.ndarray, level: float = 0.25) -> np.ndarray:
+    """Boolean PRED(level) hit vector: True where APE <= level.
+
+    This is the per-project unit that the paired McNemar test compares: a "hit"
+    is a prediction within `level` of the actual effort.
+    """
+    return ape(y_true, y_pred) <= level
+
+
+def mcnemar_exact(hit_a: np.ndarray, hit_b: np.ndarray) -> dict:
+    """Exact McNemar test on two paired hit vectors (model A vs model B).
+
+    Only discordant pairs carry information: `b` = projects A hits but B misses,
+    `c` = projects B hits but A misses. Under the null (no systematic edge) each
+    discordant pair is a fair coin, so the exact p-value is a two-sided binomial
+    test of min(b, c) successes out of b+c trials at p=0.5. The exact binomial
+    (not the chi-square approximation) is required because the discordant count
+    is tiny (tens), where the asymptotic test is untrustworthy.
+    """
+    # Imported lazily so importing the basic metrics never requires scipy.
+    from scipy.stats import binomtest
+
+    hit_a = np.asarray(hit_a, dtype=bool)
+    hit_b = np.asarray(hit_b, dtype=bool)
+    # b: A right where B is wrong (evidence FOR A). c: the mirror (FOR B).
+    b = int(np.sum(hit_a & ~hit_b))
+    c = int(np.sum(~hit_a & hit_b))
+    nd = b + c  # discordant pairs — the only ones the test counts
+    # No discordant pairs -> no signal -> p = 1.0.
+    p = binomtest(min(b, c), nd, 0.5, alternative="two-sided").pvalue if nd else 1.0
+    return {"b": b, "c": c, "discordant": nd, "p": float(p)}
+
+
+def mcnemar_discordant_for_power(pi1: float, alpha: float = 0.05, power: float = 0.80) -> float:
+    """Discordant pairs a paired McNemar test needs to reach `power`.
+
+    The paired McNemar test (two paired methods scored on the same items) only
+    uses the DISCORDANT pairs — the projects where one approach hits PRED(25) and
+    the other misses. Its power therefore depends on two things, not on N alone:
+      - pi1 = P(a discordant pair favours model A | discordant), under H1 (>0.5
+        if A is genuinely better);
+      - the discordant count m.
+    Normal approximation, conditioned on the discordant count (Connor 1987):
+        m = ( z_{alpha/2}·0.5 + z_{1-beta}·sqrt(pi1·(1-pi1)) )^2 / (pi1 - 0.5)^2
+    """
+    from scipy.stats import norm
+
+    # pi1 must express an effect in A's favour; 0.5 is the null (no edge).
+    if not 0.5 < pi1 < 1.0:
+        raise ValueError("pi1 must be in (0.5, 1.0): the discordant split favouring A")
+    za = float(norm.ppf(1 - alpha / 2))  # two-sided significance z
+    zb = float(norm.ppf(power))          # power z (one-sided)
+    return (za * 0.5 + zb * (pi1 * (1 - pi1)) ** 0.5) ** 2 / (pi1 - 0.5) ** 2
+
+
+def mcnemar_sample_size(
+    pi1: float, p_disc: float, alpha: float = 0.05, power: float = 0.80
+) -> dict:
+    """Total paired projects N (and discordant pairs m) for the paired gate.
+
+    `p_disc` is the share of project pairs expected to be discordant. N inflates
+    the discordant requirement m by 1/p_disc, because only discordant pairs count.
+    """
+    if not 0.0 < p_disc <= 1.0:
+        raise ValueError("p_disc must be in (0, 1]")
+    m = mcnemar_discordant_for_power(pi1, alpha, power)
+    return {"discordant_pairs": m, "n_projects": m / p_disc}
+
+
+def mcnemar_mde(
+    n: int, p_disc: float, alpha: float = 0.05, power: float = 0.80, step: float = 1e-3
+) -> float | None:
+    """Minimal detectable effect: the smallest pi1 an N-project study can detect.
+
+    Inverts the sample-size formula at fixed N and p_disc. Returns None if even a
+    near-deterministic effect (pi1 -> 1) is underpowered at this N — the honest
+    signal that the study cannot return anything but INCONCLUSIVE.
+    """
+    available = n * p_disc  # discordant pairs this study will yield
+    pi = 0.5 + step
+    while pi < 1.0:
+        # The first pi1 whose requirement fits the available discordant pairs is
+        # the minimal detectable effect (requirement shrinks as pi1 grows).
+        if mcnemar_discordant_for_power(pi, alpha, power) <= available:
+            return float(pi)
+        pi += step
+    return None
+
+
 @dataclass(frozen=True)
 class Split:
     """Row positions of a train / calibration / test split of one DataFrame.
