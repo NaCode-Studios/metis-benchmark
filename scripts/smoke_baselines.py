@@ -10,7 +10,6 @@ Usage: python scripts/smoke_baselines.py
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
 from metis_benchmark.baselines import LogSizeRegression, MedianByCategory
 from metis_benchmark.datasets.loaders import load

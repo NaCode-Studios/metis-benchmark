@@ -13,4 +13,4 @@ backtest-b:
 	python -m metis_benchmark.backtest --track B
 
 lint:
-	ruff check src tests
+	ruff check src tests scripts

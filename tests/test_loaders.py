@@ -4,7 +4,6 @@ Each loader must expose the canonical schema of its track with sane values;
 these checks catch silent format drift if a source file changes upstream.
 """
 
-import numpy as np
 import pytest
 
 from metis_benchmark.datasets import status

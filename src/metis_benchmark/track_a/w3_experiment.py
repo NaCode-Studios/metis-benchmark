@@ -18,7 +18,6 @@ from metis_benchmark.baselines import LogSizeRegression
 from metis_benchmark.datasets.loaders import load
 from metis_benchmark.evaluation import ordered_kfold, rolling_origin_split, temporal_split
 from metis_benchmark.track_a.features import (
-    FEATURE_COLUMNS,
     SPLIT_METHOD,
     encode_features,
     impute_train_median,

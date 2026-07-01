@@ -13,9 +13,6 @@ Usage: python scripts/run_seera_verdict.py
 from __future__ import annotations
 
 import numpy as np
-from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
-
-import numpy as np  # noqa: F811 (kept explicit for the wrapper import below)
 from sklearn.ensemble import HistGradientBoostingRegressor as _HGB
 from sklearn.ensemble import RandomForestRegressor as _RF
 
