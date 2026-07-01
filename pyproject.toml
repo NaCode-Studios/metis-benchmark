@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "metis-benchmark"
 version = "0.1.0"
-description = "Public backtest of the Metis software effort estimation engine on open datasets (PROMISE, SEERA, JOSSE, TAWOS, Deep-SE, SiP)"
+description = "Reproducible backtest of the Metis software effort estimation engine on open datasets (PROMISE, SEERA, JOSSE, TAWOS, Deep-SE, SiP)"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "NaCode Studios", email = "info@nacodestudios.it" }]

@@ -246,7 +246,7 @@ python scripts/run_ceiling.py         # tabular honest ceiling + stop rule
 python scripts/embed_track_b.py       # cache embeddings (slow, once)
 python scripts/run_track_b.py         # semantic channel
 python scripts/run_ceiling_b.py       # semantic honest ceiling + stop rule
-make test                             # full test suite (62 tests)
+make test                             # full test suite (66 tests)
 ```
 
 Or, equivalently, `make reproduce-g0` after installing — it chains the same

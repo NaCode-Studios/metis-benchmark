@@ -1,6 +1,6 @@
 # metis-benchmark
 
-Public, reproducible backtest of the **Metis** software effort-estimation
+Reproducible backtest of the **Metis** software effort-estimation
 engine on open datasets. This repository is the Phase 0 gate (G0) of the
 Metis MVP by [NaCode Studios](https://nacodestudios.it): if the engine does
 not beat the standard baselines — and the human expert, where datasets record
