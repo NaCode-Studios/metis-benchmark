@@ -143,14 +143,14 @@ its features).
 
 | Dataset | n test | GP engine PRED(25) | Honest ceiling [CI95] | vs log-size baseline |
 |---|---|---|---|---|
-| Desharnais | 39 | 38.5% | 46.3% [31.7, 61.0] | beats (aggregate) |
+| Desharnais | 41 | 36.6% | 46.3% [31.7, 61.0] | beats (aggregate) |
 | Kitchenham | 73 | 45.2% | 45.2% [34.2, 56.2] | **+12.3% [4.1, 20.6]** |
 | Maxwell | 31 | 51.6% | 51.6% [35.5, 67.7] | **+22.6% [3.2, 45.2]** |
 | COCOMO81 | 62 | 41.9% | 41.9% [30.6, 54.8] | beats (aggregate) |
 | SEERA *(holdout)* | 59 | 25.4% | 33.9% | +3.4% |
 | China *(no signal)* | 499 | 19.2% | ~21% | no lift (19.2% vs 22.0%) |
 
-Aggregate over the four gate development datasets (n=205): **43.5% [36.7, 50.2]**,
+Aggregate over the four gate development datasets (n=207): **43.5% [36.7, 50.2]**,
 beating the log-size baseline by **+12.1% [5.3, 18.8]** — a real, confident lift
 over naive baselines. But **no dataset's central estimate reaches 55%**; the
 honest ceiling's point estimate is below 55% on all five (including the sealed
@@ -266,6 +266,30 @@ protocol, its amendments, and the pre-registration timestamps are in
 - SiP — Jones & Cullum (2019), github.com/Derek-Jones/SiP_dataset.
 - Deep-SE — Choetkiertikul et al. (2019), IEEE TSE; CSVs via SOLAR-group.
 - Romano, Patterson, Candès (2019) — *Conformalized Quantile Regression*.
+
+## 10. Errata
+
+**2026-07-02 — desharnais row count and GP point estimate (§5).** Two fully
+diagnosed causes, no verdict change (every value stays far below the 55% bar):
+
+1. *Bug fix.* The "gate (selected)" series in `track_a/experiment.py` predicted
+   from the raw (non-imputed) test matrix instead of the train-median-imputed
+   one; on datasets with missing features it silently diverged from the
+   selected regressor. Fixed and locked by `tests/test_experiment.py`. Impact
+   on the rolling run: PRED(25) unchanged everywhere; gate MdAPE 29.6% → 28.5%
+   (desharnais), 28.5% → 28.3% (aggregate).
+2. *Row policy propagation.* Since v1.3, rows with missing features are
+   imputed, not dropped; desharnais keeps its 4 rows with −1-coded missing
+   experience fields (77 → 81 rows). The §5 table previously carried the
+   pre-v1.3 desharnais snapshot: **n test 39 → 41, GP 38.5% → 36.6%**.
+   Re-applying the old drop policy reproduces the old numbers exactly.
+
+The aggregate was re-verified on 2026-07-02: **43.5% [36.7, 50.2]** and
+**+12.1% [5.3, 18.8]** over log-size are unchanged at reported precision; the
+pooled row count is corrected from 205 to **207**. Kitchenham, Maxwell,
+COCOMO81 and China reproduce identically. The sealed SEERA holdout was not
+re-opened. Full old→new detail in
+[`results/track_a_rolling_origin.md`](results/track_a_rolling_origin.md) (ERRATA section).
 
 ---
 

@@ -180,9 +180,13 @@ def run_dataset(key: str, models: dict[str, ModelFactory], mode: str = "single")
             model = factory().fit(Xtr, y[tr])
             fitted[name] = model
             preds[name][te] = model.predict(Xte)
-        # The selected gate regressor reuses the already-fitted model.
+        # The selected gate regressor reuses the already-fitted model. It must
+        # predict on the *imputed* test matrix (Xte), exactly like the model it
+        # points to: the model was fitted on imputed data, so feeding it the raw
+        # X[te] (with NaNs) would silently change — or NaN out — its predictions
+        # and desynchronize "gate (selected)" from the selected regressor's row.
         if gate_regressor is not None:
-            preds["gate (selected)"][te] = fitted[gate_regressor].predict(X[te])
+            preds["gate (selected)"][te] = fitted[gate_regressor].predict(Xte)
         # Baseline: log-size regression on the canonical size measure.
         preds["log-size regression"][te] = (
             LogSizeRegression().fit(size[tr], y[tr]).predict(size[te])
