@@ -46,6 +46,10 @@ class LogGBMQuantile:
     def _prep(self, X: np.ndarray) -> np.ndarray:
         # Same feature treatment as the GP: log1p compresses count tails.
         X = np.asarray(X, dtype=float)
+        # A single sample passed as a 1-D vector is promoted to one row, so the
+        # row count downstream is always X.shape[0] with no ambiguity.
+        if X.ndim == 1:
+            X = X[None, :]
         return np.log1p(X) if self._log_features else X
 
     def fit(self, X: np.ndarray, effort: np.ndarray) -> "LogGBMQuantile":
@@ -57,13 +61,17 @@ class LogGBMQuantile:
         return self
 
     def predict_quantiles(self, X: np.ndarray) -> dict[float, np.ndarray]:
-        # XGBoost returns shape (n, n_quantiles); exp() maps each back to hours.
-        raw = np.atleast_2d(self._model.predict(self._prep(X)))
-        # A single-quantile model returns (n,) -> reshape to (n, 1).
-        if raw.shape[0] == 1 and len(self._quantiles) > 1:
-            raw = raw.T
-        if raw.ndim == 1:
-            raw = raw[:, None]
+        Xp = self._prep(X)
+        n_rows, n_quantiles = Xp.shape[0], len(self._quantiles)
+        # XGBoost's output shape depends on the case: (n, m) for a multi-
+        # quantile model, (n,) for a single-quantile one — hence (1, m) and
+        # (1,) for one row. Shape-based heuristics (atleast_2d + transpose)
+        # cannot distinguish "one row, m quantiles" from "m rows, one
+        # quantile", so we pin the layout explicitly: the element count is
+        # always n_rows * n_quantiles and XGBoost orders it row-major, which
+        # makes a single reshape correct in every one of the four cases.
+        raw = np.asarray(self._model.predict(Xp)).reshape(n_rows, n_quantiles)
+        # exp() maps each log-effort quantile back to the original unit.
         return {q: np.exp(raw[:, i]) for i, q in enumerate(self._quantiles)}
 
     def predict(self, X: np.ndarray) -> np.ndarray:
