@@ -32,10 +32,14 @@ Mandatory baselines the engine must beat:
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[models,dev]"
+pip install -e ".[models,dev]" -c constraints-g0.txt
 make test
-make status        # which datasets are present in data/raw/
+make status        # which datasets are present in data/raw/ (status-a / status-b per track)
+make reproduce-g0  # full G0 chain (REPORT.md §8): download → both channels → ceilings → tests
 ```
+
+`constraints-g0.txt` pins the exact package versions the G0 numbers were
+produced with; install with `-c` to reproduce them bit-for-bit.
 
 Datasets are **not** committed: each has its own license and citation
 requirements. Sources are listed in
