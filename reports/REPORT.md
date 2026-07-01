@@ -239,15 +239,26 @@ proprietary data, and we make no claim about it here.
 git clone https://github.com/NaCode-Studios/metis-benchmark
 cd metis-benchmark
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[models,semantic,plots,dev]"
+pip install -e ".[models,semantic,plots,dev]" -c constraints-g0.txt
 python scripts/download.py            # public datasets (licenses in registry.py)
 python scripts/run_track_a_rolling.py # tabular channel
 python scripts/run_ceiling.py         # tabular honest ceiling + stop rule
 python scripts/embed_track_b.py       # cache embeddings (slow, once)
 python scripts/run_track_b.py         # semantic channel
 python scripts/run_ceiling_b.py       # semantic honest ceiling + stop rule
-make test                             # 46 tests
+make test                             # full test suite (62 tests)
 ```
+
+Or, equivalently, `make reproduce-g0` after installing — it chains the same
+scripts in the same order.
+
+**Pinned environment.** `constraints-g0.txt` freezes the exact package set the
+G0 numbers were produced with (`pip freeze` of the benchmark venv,
+CPython 3.14.4). Bootstrap seeds are fixed, but library upgrades can still
+move third-decimal behavior (GP optimizer, XGBoost splits), so exact
+reproduction requires the constraints file. Key versions:
+`numpy==2.4.6`, `scikit-learn==1.9.0`, `xgboost==3.2.0`, `scipy==1.17.1`
+(plus `pandas==3.0.3`, `MAPIE==1.4.1`).
 
 Every number in this report is produced by these scripts. The evaluation
 protocol, its amendments, and the pre-registration timestamps are in

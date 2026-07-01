@@ -14,6 +14,10 @@ dependencies = [
     "numpy>=1.26",
     "pandas>=2.1",
     "scikit-learn>=1.4",
+    # payload.py and evaluation.py consume scipy.stats (normal quantiles,
+    # exact binomial McNemar); it was an undeclared transitive dependency
+    # (via scikit-learn) until frozen here explicitly.
+    "scipy>=1.11",
 ]
 
 [project.optional-dependencies]
