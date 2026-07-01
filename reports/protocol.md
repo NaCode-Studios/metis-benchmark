@@ -158,6 +158,20 @@ needed only for the euro conversion in the final report, not for the gate.
 
 ## 8. Amendment log
 
+Each pre-registration below is anchored by an **annotated git tag** on the
+exact commit that froze it, so the freeze points are addressable without
+digging through the log — the tag's commit timestamp *is* the
+pre-registration timestamp:
+
+| Tag | Commit | Freezes |
+|---|---|---|
+| `prereg-v1.2` | `5e63d84` | rolling-origin gate estimator + gate-regressor rule |
+| `prereg-v1.3` | `fdcd613` | W3 feature sets, mean-function GP + pooling plan, SEERA holdout, stop rule |
+| `prereg-v1.3-addendum` | `d05b7ff` | exact leakage-free pooling procedure (slope-only, DerSimonian–Laird) |
+| `prereg-v2.0` | `0e43e0a` | Track B semantic channel: datasets/splits, embeddings, k-NN NW, stop rule |
+
+Verify with `git tag -n99 'prereg-*'` and `git show <tag>`.
+
 ### v1.2 (2026-06-12) — rolling-origin temporal CV for the gate verdict
 
 **This section is pre-registered: it is committed BEFORE the rolling-origin
