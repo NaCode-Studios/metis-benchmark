@@ -1,0 +1,38 @@
+# Continuous integration: lint + unit tests on every push and pull request.
+#
+# Deliberately dataset-free: the loader tests parametrize on which raw
+# datasets are locally present (tests/test_loaders.py) and skip cleanly when
+# data/raw/ is empty, so CI never downloads the ~870 MB of benchmark data —
+# it exercises the metrics, splits, models, conformal and downloader-guard
+# logic on synthetic inputs only. Runs on GitHub-hosted runners, which work
+# on private repositories within the included minutes. No untrusted event
+# input (titles, bodies, branch names) is ever interpolated into a command.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      # One failing interpreter must not hide results from the others.
+      fail-fast: false
+      matrix:
+        # pyproject declares requires-python >=3.11; 3.11-3.13 is the range
+        # with stable wheels for the full model stack (xgboost, mapie).
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install package with model and dev extras
+        run: pip install -e '.[models,dev]'
+      - name: Lint (same target as 'make lint')
+        run: ruff check src tests scripts
+      - name: Test
+        run: pytest -q
