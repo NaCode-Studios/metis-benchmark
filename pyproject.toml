@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Reproducible backtest of the Metis software effort estimation engine on open datasets (PROMISE, SEERA, JOSSE, TAWOS, Deep-SE, SiP)"
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [{ name = "NaCode Studios", email = "info@nacodestudios.it" }]
+authors = [{ name = "NaCode Studios" }]
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
