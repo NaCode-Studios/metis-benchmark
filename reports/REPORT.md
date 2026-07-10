@@ -304,6 +304,6 @@ re-opened. Full old→new detail in
 
 ---
 
-*This report is an internal NaCode Studios artifact, written to be publishable.
-Publishing the benchmark is a deliberate decision: a rigorous, honest negative
-is a credibility asset, but it is the founder's call to make.*
+*This benchmark is published on purpose. A rigorous, honest negative is a
+credibility asset: the numbers are reported straight, and the pre-registration
+lives in the git history for anyone who wants to check them.*

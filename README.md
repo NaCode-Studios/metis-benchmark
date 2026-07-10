@@ -1,5 +1,11 @@
 # metis-benchmark
 
+**Can a model estimate software effort from public data? A pre-registered blind test — with an honest negative result.**
+
+[![CI](https://github.com/NaCode-Studios/metis-benchmark/actions/workflows/ci.yml/badge.svg)](https://github.com/NaCode-Studios/metis-benchmark/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-3776ab.svg)](pyproject.toml)
+
 Reproducible backtest of the **Metis** software effort-estimation
 engine on open datasets. This repository is the Phase 0 gate (G0) of the
 Metis MVP by [NaCode Studios](https://nacodestudios.it): if the engine does
