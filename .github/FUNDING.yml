@@ -1,0 +1,4 @@
+# GitHub reads this file to render the "Sponsor" button on the repository.
+# It points at the NaCode-Studios organisation Sponsors profile
+# (github.com/sponsors/NaCode-Studios), which is already public and active.
+github: [NaCode-Studios]

@@ -72,6 +72,28 @@ requirements. Sources are listed in
       public gate — both channels proven below 55%; intervals honest;
       expert-assist + proprietary-data pilot are the evidence-based next steps**
 
+## Looking for a pilot partner
+
+The benchmark's one honest gap is the regime it could **not** test: a *single
+organization's own delivery history*. Every gate split here was cross-organization
+cold start on public data — the hardest case, and precisely *not* where an
+estimation tool is deployed. Whether calibrated estimation clears the bar on one
+team's own consistent history is an open, testable question — and the obvious next
+experiment.
+
+If your organization has that history, we would like to run a pilot:
+
+- **What qualifies** — completed projects (or a task backlog) with *recorded actual
+  effort* (developer hours or cost), logged consistently by one team. Enough to
+  train and validate on a time-ordered split: realistically some dozens of finished
+  projects, or a few hundred logged tasks.
+- **What we would do** — apply the same discipline you can read here (pre-registered
+  thresholds, temporal splits, leakage audit, honest feasibility ceiling, calibrated
+  intervals) to your data, under NDA, and report straight whether it passes on your
+  history. No cherry-picked demo.
+
+Reach out: **info@nacodestudios.it**.
+
 ## Citations
 
 This benchmark builds on public datasets by their respective authors —
