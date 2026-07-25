@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Metis">
   <circle cx="24" cy="24" r="23" fill="#F1F1EE"/>
-  <g fill="#14181A"><g transform="translate(12.723,34)"><path transform="translate(0.0,0) scale(0.01242,-0.01242)" d="M768.87 -20 212.87 1500H524.73L924.97 423.23L1298.53 1500H1333.03L806.85 -20ZM229.53 1500V31.73H378.69V0H53.3V31.73H195.82V1468.27H43.01V1500ZM1773.9 1500V1468.27H1633.51V31.73H1773.9V0H1163.4V31.73H1323.9V1500Z"/></g></g>
+  <circle cx="24" cy="24" r="19.4" fill="none" stroke="#14181A" stroke-width="2" stroke-dasharray="1.5 3.2" opacity="0.8"/>
+  <g fill="#14181A"><g transform="translate(13.811,33.5)"><path transform="translate(0.0,0) scale(0.0115,-0.0115)" d="M748.18 -20 192.18 1500H503.57L904.63 425.68L1283.45 1500H1290.95L757.4 -20ZM195.86 1500V7.18H350.63V0H44.18V7.18H188.45V1492.82H34.59V1500ZM1738.13 1500V1492.82H1598.09V7.18H1738.13V0H1127.63V7.18H1288.13V1500Z"/></g></g>
 </svg>
