@@ -11,7 +11,8 @@ itself after it: `METIS / BENCHMARK`, `METIS / API`, and so on.
 | `metis-mark-small.svg` | below 24px: the rim is dropped, the disc and the mu carry it alone |
 | `metis-mark-bronze.svg` | the bronze field |
 | `metis-mark-outline.svg` | one keyline on paper |
-| `metis-mark-reversed.svg` | on an ink ground |
+| `metis-mark-reversed.svg` | on an ink ground: field and mu swap, and the rim swaps with them |
+| `metis-mark-reversed-small.svg` | on an ink ground below 24px |
 | `metis-lockup.svg` / `-reversed.svg` / `-bronze.svg` | mark, wordmark and the line beneath it |
 | `metis-favicon-512.png` | favicon, avatar, app icon |
 | `metis-tokens.css` | colour, type and tracking tokens |
