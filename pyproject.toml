@@ -37,7 +37,11 @@ plots = [
 ]
 dev = [
     "pytest>=8.0",
-    "ruff>=0.4",
+    # Upper bound so the lint gate stays reproducible: ruff 0.16.0 added rules
+    # (RUF046, RUF059, PYI034, a wider UP035/UP037) that fire on code this repo
+    # already had. 0.15.x is clean. Lift the bound together with a pass over
+    # the new findings.
+    "ruff>=0.4,<0.16",
 ]
 
 [tool.hatch.build.targets.wheel]

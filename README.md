@@ -1,10 +1,14 @@
+<p align="center">
+  <img src="docs/metis-benchmark-hero.png" alt="Metis / Benchmark — can a model estimate software effort from public data?" width="100%">
+</p>
+
 # metis-benchmark
 
 **Can a model estimate software effort from public data? A pre-registered blind test — with an honest negative result.**
 
 [![CI](https://github.com/NaCode-Studios/metis-benchmark/actions/workflows/ci.yml/badge.svg)](https://github.com/NaCode-Studios/metis-benchmark/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-3776ab.svg)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-5C6567?labelColor=14181A)](LICENSE)
+[![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-3776AB?logo=python&logoColor=white&labelColor=14181A)](pyproject.toml)
 
 Reproducible backtest of the **Metis** software effort-estimation
 engine on open datasets. This repository is the Phase 0 gate (G0) of the
@@ -104,5 +108,8 @@ Conformalized Quantile Regression (Romano, Patterson, Candès 2019) via the
 MAPIE library. Cite the original sources when reusing the data.
 
 ## License
-
 Code: [MIT](LICENSE). Datasets: see their respective licenses.
+
+---
+
+Brand assets — the tetradrachm mark, the wordmark, and the colour and type tokens — are in [`docs/brand`](docs/brand).

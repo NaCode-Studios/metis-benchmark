@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Metis">
+  <circle cx="24" cy="24" r="23" fill="#2C5449"/>
+  <circle cx="24" cy="24" r="19.4" fill="none" stroke="#F1F1EE" stroke-width="2" stroke-dasharray="1.5 3.2" opacity="0.8"/>
+  <g fill="#F1F1EE"><g transform="translate(13.811,33.5)"><path transform="translate(0.0,0) scale(0.0115,-0.0115)" d="M748.18 -20 192.18 1500H503.57L904.63 425.68L1283.45 1500H1290.95L757.4 -20ZM195.86 1500V7.18H350.63V0H44.18V7.18H188.45V1492.82H34.59V1500ZM1738.13 1500V1492.82H1598.09V7.18H1738.13V0H1127.63V7.18H1288.13V1500Z"/></g></g>
+</svg>

@@ -1,0 +1,39 @@
+/* Metis design system tokens.
+   Neutral ground, patinated bronze, three verdicts. Bronze marks one thing per
+   view: the reading that matters. Verdict colours are reserved for
+   pre-registered outcomes and are never used decoratively. */
+:root {
+  /* Ground */
+  --metis-paper: #F1F1EE;       /* page ground */
+  --metis-card: #FFFFFF;        /* surfaces, tables */
+  --metis-rule: #DAD9D3;        /* borders, dividers */
+  --metis-rule-soft: #ECEBE6;   /* inner dividers */
+
+  /* Ink */
+  --metis-ink: #14181A;         /* the coin field, headings */
+  --metis-graphite: #2C3335;    /* body text */
+  --metis-slate: #5C6567;       /* labels, captions */
+  --metis-mute: #8D9496;        /* meta, disabled */
+
+  /* The one accent */
+  --metis-bronze: #2C5449;
+  --metis-bronze-wash: #E4EBE8; /* callout ground */
+  --metis-patina: #B7CCC5;      /* CQR interval bands */
+
+  /* Verdicts — pre-registered outcomes only */
+  --metis-brass: #9A7B3F;       /* under-powered evidence */
+  --metis-oxblood: #7B2B33;     /* stop rule fired */
+
+  /* Type */
+  --metis-font-display: 'Bodoni Moda', Georgia, serif;   /* titles, verdicts */
+  --metis-font-wordmark: 'Cormorant Garamond', Georgia, serif;
+  --metis-font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --metis-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --metis-wordmark-tracking: 0.16em;  /* the wordmark is always letterspaced */
+  --metis-eyebrow-tracking: 0.12em;
+  --metis-display: 500 54px/1.1 var(--metis-font-display);
+  --metis-heading: 500 32px/1.2 var(--metis-font-display);
+  --metis-body: 400 17px/1.65 var(--metis-font-body);
+  --metis-mono: 400 13px/1.5 var(--metis-font-mono);
+}
