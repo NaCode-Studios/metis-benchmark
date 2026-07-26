@@ -9,6 +9,7 @@
 [![CI](https://github.com/NaCode-Studios/metis-benchmark/actions/workflows/ci.yml/badge.svg)](https://github.com/NaCode-Studios/metis-benchmark/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-5C6567?labelColor=14181A)](LICENSE)
 [![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-3776AB?logo=python&logoColor=white&labelColor=14181A)](pyproject.toml)
+[![Website](https://img.shields.io/badge/website-nacodestudios.it-5C6567?labelColor=14181A)](https://nacodestudios.it/en/project/metis)
 
 Reproducible backtest of the Metis software effort-estimation engine on open
 datasets. This repository is the Phase 0 gate (G0) of the Metis MVP by NaCode
