@@ -24,12 +24,16 @@ MIN_ROWS = {
     "deepse": 20000,
     "josse": 20000,
     "sip": 9000,
+    # Post-G0, mined rather than downloaded: the whole Apache tracker yields about
+    # two thousand issues carrying both an estimate and an actual, and the floor is
+    # set below that so a partial mine fails loudly.
+    "apache_jira": 1500,
 }
 
 # Expectations per dataset, derived from the week-1 EDA.
-TRACK_B = {"deepse", "josse", "sip"}
-HAS_EXPERT = {"kitchenham", "seera", "josse", "sip"}
-HAS_DATE = {"desharnais", "kitchenham", "maxwell", "seera", "sip"}
+TRACK_B = {"deepse", "josse", "sip", "apache_jira"}
+HAS_EXPERT = {"kitchenham", "seera", "josse", "sip", "apache_jira"}
+HAS_DATE = {"desharnais", "kitchenham", "maxwell", "seera", "sip", "apache_jira"}
 
 
 def needs(key):
