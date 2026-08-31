@@ -109,11 +109,38 @@ class ConformalizedQuantile:
         # Shift both quantiles outward by the calibrated correction. A negative
         # q (over-wide base interval) is allowed: CQR can also tighten.
         if self.space == "raw":
-            return lower - self.q_, upper + self.q_
-        # Log-space shift back-transformed: exp(log(bound) -/+ q) is a uniform
-        # multiplicative correction, so the lower bound stays positive and the
-        # widening is proportional to the project's own scale.
-        return lower * np.exp(-self.q_), upper * np.exp(self.q_)
+            lo, hi = lower - self.q_, upper + self.q_
+        else:
+            # Log-space shift back-transformed: exp(log(bound) -/+ q) is a uniform
+            # multiplicative correction, so the lower bound stays positive and the
+            # widening is proportional to the project's own scale.
+            lo, hi = lower * np.exp(-self.q_), upper * np.exp(self.q_)
+        return _uncross(lo, hi)
+
+
+def _uncross(lower: np.ndarray, upper: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Collapse an inverted band to its midpoint instead of returning lower > upper.
+
+    A strongly NEGATIVE q means the base quantiles were wider than the calibration
+    residuals justify, so CQR tightens them — and a tightening larger than half the
+    base width would push the lower bound past the upper one. That is not an
+    interval: `evaluation.empirical_coverage` rejects it, so downstream the choice
+    is between a crash and a defined answer.
+
+    The defined answer is the midpoint. The calibration is saying "the truthful band
+    here is narrower than nothing", and a zero-width interval reports exactly that:
+    it is honest (it will miss almost every actual, which is what an over-tightened
+    band deserves) rather than silently swapping the bounds, which would fabricate a
+    band the calibration never endorsed.
+
+    Reached only in the pathological case; a well-behaved fit leaves both arrays
+    untouched, so nothing that ran before this guard existed changes behaviour.
+    """
+    crossed = lower > upper
+    if not np.any(crossed):
+        return lower, upper
+    mid = 0.5 * (lower + upper)
+    return np.where(crossed, mid, lower), np.where(crossed, mid, upper)
 
 
 def log_size_tercile_edges(size_train: np.ndarray) -> np.ndarray:

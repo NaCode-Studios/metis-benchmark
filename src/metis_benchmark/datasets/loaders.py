@@ -43,6 +43,8 @@ EFFORT_UNITS: dict[str, str] = {
     # EDA: median 3600, p90 28800 (1h / 8h) -> JIRA timespent in seconds.
     "josse": "seconds",
     "sip": "person-hours",
+    # JIRA stores seconds; the loader converts to hours.
+    "apache_jira": "person-hours",
 }
 
 
@@ -200,6 +202,31 @@ def load_sip() -> pd.DataFrame:
     return df
 
 
+def load_apache_jira() -> pd.DataFrame:
+    """Apache JIRA issues that record BOTH an original estimate and time spent.
+
+    POST-G0 and never gate-carrying (registry `in_gate=False`): mined after the gate
+    closed, by `scripts/mine_apache_jira.py`. It exists to ask the SiP
+    within-organisation question of MANY independent teams instead of one company —
+    each project is its own team with its own logging culture, and both halves of the
+    pair are recorded on every row.
+
+    JIRA stores both quantities in SECONDS; they are converted to hours so the column
+    means the same thing it does everywhere else in this package.
+    """
+    df = pd.read_csv(raw_path("apache_jira") / "issues.csv")
+    df["effort"] = pd.to_numeric(df["spent_seconds"], errors="coerce") / 3600.0
+    df["expert_estimate"] = pd.to_numeric(df["estimate_seconds"], errors="coerce") / 3600.0
+    df["text"] = df["summary"].fillna("").astype(str)
+    df["category"] = df["issuetype"].astype("string")
+    df["project"] = df["project"].astype("string")
+    # Creation date, not resolution: the estimate exists from the moment the issue is
+    # filed, so ordering on creation is the only ordering that keeps a fold's training
+    # block strictly in the past of its test block.
+    df["date"] = pd.to_datetime(df["created"], errors="coerce", utc=True).dt.tz_localize(None)
+    return df
+
+
 # Dispatch table: registry key -> loader function.
 LOADERS: dict[str, Callable[[], pd.DataFrame]] = {
     "desharnais": load_desharnais,
@@ -212,6 +239,7 @@ LOADERS: dict[str, Callable[[], pd.DataFrame]] = {
     "deepse": load_deepse,
     "josse": load_josse,
     "sip": load_sip,
+    "apache_jira": load_apache_jira,
 }
 
 

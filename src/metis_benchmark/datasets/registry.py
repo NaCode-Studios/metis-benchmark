@@ -125,6 +125,19 @@ SOURCES: list[DatasetSource] = [
         "validation: CQR coverage, underestimation bias",
     ),
     DatasetSource(
+        key="apache_jira",
+        track="B",
+        name="Apache JIRA time-tracked issues (mined 2026-08)",
+        source="issues.apache.org/jira REST API — scripts/mine_apache_jira.py",
+        license="Apache Software Foundation public issue tracker (ASL-2.0 project data)",
+        in_gate=False,
+        notes="POST-G0, never gate-carrying: mined after the gate closed. ~2.1k issues "
+        "across ~180 projects carrying BOTH timeoriginalestimate and timespent — a "
+        "recorded human estimate paired with a recorded actual, dated, grouped by "
+        "project. Small (time tracking is optional in Apache), but it is many "
+        "independent teams rather than the one company SiP records",
+    ),
+    DatasetSource(
         key="tawos",
         track="B",
         name="TAWOS (MSR 2022)",

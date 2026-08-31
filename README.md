@@ -75,6 +75,25 @@ requirements. Sources are listed in
 - [x] [Full G0 verdict](reports/results/G0_full_verdict.md): NO-GO on the
       public gate. Both channels proven below 55%; the intervals are honest;
       expert-assist and a proprietary-data pilot are the evidence-based next steps
+- [x] Post-G0, not gate-carrying — **the same question asked of three corpora**:
+      does correcting an estimator's own estimate, from its own history, beat leaving
+      it alone? All three say no.
+      - [SiP](reports/results/postg0_sip_within_org.md): one company, ten years,
+        12,299 estimates. A measured tie at n=4,533 once the exact ties are dropped,
+        and a single global recalibration factor is significantly *worse*
+        (−0.8% PRED(25), McNemar p=2.6e-05). The expert's headline 41.6% is also 26%
+        logging convention — drop the rows where the actual equals the estimate to
+        the digit and it falls to 20.7%
+      - [Apache JIRA](reports/results/postg0_apache_jira.md): ~2,100 estimates across
+        ~180 independent teams, mined fresh. Here the estimator is heavily biased
+        (mean log-ratio −1.05), and the *centre* of the correction decides everything:
+        the mean-based factor costs −7.2% (p=3e-07), the median-based one is a clean
+        tie (+0.4%, p=0.66)
+      - [TAWOS](reports/results/postg0_tawos.md): 43,108 story-pointed issues across
+        28 projects. A team's own point-to-outcome rate beats the estimate-blind floor
+        by +2.2% (p=3e-15), and a model given the same points plus context does not
+        beat the plain conversion. On the small correctly-labelled effort subset the
+        points stop working entirely
 
 ## Looking for a pilot partner
 
@@ -84,6 +103,16 @@ cold start on public data, the hardest case, and precisely *not* where an
 estimation tool is deployed. Whether calibrated estimation clears the bar on one
 team's own consistent history is an open, testable question, and the obvious next
 experiment.
+
+Slices of it have since been measured on public data, and all came back negative.
+[SiP](reports/results/postg0_sip_within_org.md) is one company's decade of logged
+tasks; [Apache JIRA](reports/results/postg0_apache_jira.md) is ~180 independent teams;
+[TAWOS](reports/results/postg0_tawos.md) is 28 projects with a story-point scale each.
+In every one of them the estimator that already exists is the one to beat, and none of
+the model classes tried beats it. That is task and issue granularity, not the
+project-level history a pilot would bring — but it is evidence, and it is the reason
+the offer below leads with the calibrated interval rather than with an expected
+accuracy gain.
 
 If your organization has that history, we would like to run a pilot.
 
@@ -103,8 +132,10 @@ Reach out: info@nacodestudios.it.
 
 This benchmark builds on public datasets by their respective authors: the
 PROMISE repository (CC-BY, Zenodo mirrors), SEERA (PROMISE/ACM 2020),
-JOSSE (Alhamed & Storer 2022), TAWOS (MSR 2022), Deep-SE
-(Choetkiertikul et al. 2019), and SiP (Jones & Cullum 2019). It also builds on
+JOSSE (Alhamed & Storer 2022), TAWOS (MSR 2022, DOI 10.5522/04/21308124,
+Apache-2.0, research use only), Deep-SE (Choetkiertikul et al. 2019), and
+SiP (Jones & Cullum 2019). The post-G0 Apache corpus is mined from the Apache
+Software Foundation's public issue tracker by `scripts/mine_apache_jira.py`. It also builds on
 Conformalized Quantile Regression (Romano, Patterson, Candès 2019) via the
 MAPIE library. Cite the original sources when reusing the data.
 
